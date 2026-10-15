@@ -3,244 +3,258 @@
 
 #include "halcyon.h"
 #include "hlc_tft_display.h"
+#include "modifiers.h"
+#include "timer.h"
+#include <stdlib.h>
 
-#include "hardware/structs/rosc.h"
+#include "graphics/icons/splitkb.qgf.h"
+#include "graphics/icons/open_with.qgf.h"
+#include "graphics/icons/mouse.qgf.h"
+#include "graphics/icons/window_tiles.qgf.h"
+#include "graphics/icons/calculate.qgf.h"
+#include "graphics/icons/data_object.qgf.h"
+#include "graphics/icons/functions.qgf.h"
+#include "graphics/icons/settings.qgf.h"
+#include "graphics/icons/trackpad_input.qgf.h"
 
-// Fonts mono2
-#include "graphics/fonts/Retron2000-27.qff.h"
-#include "graphics/fonts/Retron2000-underline-27.qff.h"
+#include "graphics/icons/keyboard_control_key.qgf.h"
+#include "graphics/icons/keyboard_option_key.qgf.h"
+#include "graphics/icons/keyboard_command_key.qgf.h"
+#include "graphics/icons/shift.qgf.h"
+#include "graphics/icons/diamond_mod.qgf.h"
 
-// Numbers mono2
-#include "graphics/numbers/0.qgf.h"
-#include "graphics/numbers/1.qgf.h"
-#include "graphics/numbers/2.qgf.h"
-#include "graphics/numbers/3.qgf.h"
-#include "graphics/numbers/4.qgf.h"
-#include "graphics/numbers/5.qgf.h"
-#include "graphics/numbers/6.qgf.h"
-#include "graphics/numbers/7.qgf.h"
-#include "graphics/numbers/8.qgf.h"
-#include "graphics/numbers/9.qgf.h"
-#include "graphics/numbers/undef.qgf.h"
+#include "graphics/icons/uppercase.qgf.h"
+#include "graphics/icons/keyboard_capslock.qgf.h"
+#include "graphics/icons/apple_logo.qgf.h"
+#include "graphics/icons/diamond.qgf.h"
 
-static const char *caps   = "Caps";
-static const char *num    = "Num";
-static const char *scroll = "Scroll";
+// Layout
+#define ICON_SIZE 120
+#define ICON_X ((LCD_WIDTH - ICON_SIZE) / 2)
+// Vertically center the icon between the mod row (ends at y=33) and the lock row (starts at y=210).
+#define ICON_Y 62
 
-static painter_font_handle_t  Retron27;
-static painter_font_handle_t  Retron27_underline;
-static painter_image_handle_t layer_number;
+#define LOCK_SLOT_Y 4
+#define LOCK_SLOT_H 30
+#define LOCK_ICON_SIZE 26
 
-static uint8_t lcd_surface_fb[SURFACE_REQUIRED_BUFFER_BYTE_SIZE(135, 240, 16)];
+#define MOD_SLOT_Y (LCD_HEIGHT - MOD_SLOT_H) // 210
+#define MOD_SLOT_H 30
 
-int color_value = 0;
+#define HSV_ICON_DIM 0, 0, 130 // toned-down icon color for inactive state
+
+// Draw a filled rectangle with 2px chamfered (slightly rounded) corners.
+static void filled_rounded_rect(painter_device_t dev, int x1, int y1, int x2, int y2, uint8_t h, uint8_t s, uint8_t v) {
+    qp_rect(dev, x1 + 2, y1, x2 - 2, y2, h, s, v, true);
+    qp_rect(dev, x1, y1 + 2, x2, y2 - 2, h, s, v, true);
+    qp_rect(dev, x1 + 1, y1 + 1, x2 - 1, y2 - 1, h, s, v, true);
+}
 
 painter_device_t lcd;
 painter_device_t lcd_surface;
 
-led_t         last_led_usb_state = {0};
-layer_state_t last_layer_state   = {0};
+static uint8_t lcd_surface_fb[SURFACE_REQUIRED_BUFFER_BYTE_SIZE(135, 240, 16)];
 
-#define GRID_WIDTH 27
-#define GRID_HEIGHT 48
-#define CELL_SIZE 4 // Cell size excluding outline
-#define OUTLINE_SIZE 1
+static painter_image_handle_t layer_icons[9]   = {0};
+static painter_image_handle_t mod_icons[4]     = {0};  // Ctrl, Alt, GUI, Shift
+static painter_image_handle_t diamond_mod_icon = NULL; // Diamond (30x30) for the mod row's GUI position when CG_TOGG is OFF
+static painter_image_handle_t lock_icons[2]    = {0};  // Caps Word, Caps Lock
+static painter_image_handle_t mac_icon         = NULL; // Apple   (shown in mac mode)
+static painter_image_handle_t nonmac_icon      = NULL; // Diamond (shown when not in mac mode)
 
-// Define the probability factor for initial alive cells
-#define INITIAL_ALIVE_PROBABILITY 0.2 // 20% chance of being alive
+// Sentinel initial values force first draw
+static uint8_t last_layer      = 0xFF;
+static uint8_t last_mods       = 0xFF;
+static led_t   last_led_state  = {.raw = 0xFF};
+static bool    last_caps_word  = true; // not 0 → forces first draw
+static bool    last_macos_mode = true; // not equal to initial false → forces first draw
 
-bool grid[GRID_HEIGHT][GRID_WIDTH];         // Current state
-bool new_grid[GRID_HEIGHT][GRID_WIDTH];     // Next state
-bool changed_grid[GRID_HEIGHT][GRID_WIDTH]; // Tracks changed cells
+// Ring buffer of accumulated sparkles on the splitkb (QWERTY) icon. Replayed
+// every time draw_layer_icon redraws layer 0 so sparkles survive layer switches.
+#define SPARKLE_BUFFER_SIZE 512
+typedef struct {
+    uint16_t x;
+    uint16_t y;
+    uint8_t  h;
+    uint8_t  s;
+    uint8_t  v;
+} sparkle_t;
+static sparkle_t sparkles[SPARKLE_BUFFER_SIZE];
+static uint16_t  sparkle_count = 0;
+static uint16_t  sparkle_next  = 0;
 
-uint32_t get_random_32bit(void) {
-    uint32_t random_value = 0;
-    for (int i = 0; i < 32; i++) {
-        wait_ms(1);
-        random_value = (random_value << 1) | (rosc_hw->randombit & 1);
+static void draw_layer_icon(uint8_t layer) {
+    // Clear top half (icon zone)
+    qp_rect(lcd_surface, ICON_X, ICON_Y, ICON_X + ICON_SIZE - 1, ICON_Y + ICON_SIZE - 1, HSV_BLACK, true);
+
+    if (layer >= 9) {
+        return;
     }
-    return random_value;
-}
 
-void init_grid() {
-    // Initialize grid with alive cells
-    for (int y = 0; y < GRID_HEIGHT; y++) {
-        for (int x = 0; x < GRID_WIDTH; x++) {
-            grid[y][x]         = (rand() < INITIAL_ALIVE_PROBABILITY * RAND_MAX); // Use probability factor
-            changed_grid[y][x] = true;                                            // Mark all as changed initially
+    qp_drawimage_recolor(lcd_surface, ICON_X, ICON_Y, layer_icons[layer], HSV_ICON_DIM, HSV_BLACK);
+
+    // Replay accumulated sparkles on top of the freshly drawn splitkb logo.
+    if (layer == 0) {
+        for (uint16_t i = 0; i < sparkle_count; i++) {
+            qp_setpixel(lcd_surface, sparkles[i].x, sparkles[i].y, sparkles[i].h, sparkles[i].s, sparkles[i].v);
         }
     }
 }
 
-void draw_grid() {
-    uint8_t hue      = 0; // Hue for alive cells
-    uint8_t sat      = 0; // Saturation for alive cells
-    uint8_t val_dead = 0; // Brightness for dead cells
+void splitkb_logo_sparkle(void) {
+    // Only sparkle while the QWERTY layer (splitkb logo) is on screen.
+    if (get_highest_layer(layer_state | default_layer_state) != 0) {
+        return;
+    }
 
-    for (int y = 0; y < GRID_HEIGHT; y++) {
-        for (int x = 0; x < GRID_WIDTH; x++) {
-            if (changed_grid[y][x]) { // Only update changed cells
-                uint16_t left   = x * (CELL_SIZE + OUTLINE_SIZE);
-                uint16_t top    = y * (CELL_SIZE + OUTLINE_SIZE);
-                uint16_t right  = left + CELL_SIZE + OUTLINE_SIZE;
-                uint16_t bottom = top + CELL_SIZE + OUTLINE_SIZE;
+    // Pick a random pixel inside the icon's bounding box.
+    int x = ICON_X + (rand() % ICON_SIZE);
+    int y = ICON_Y + (rand() % ICON_SIZE);
 
-                // Draw the outline
-                qp_rect(lcd_surface, left, top, right, bottom, hue, sat, val_dead, true);
+    // The RGB565 framebuffer: 2 bytes/pixel, row-major. Skip if currently black
+    // (outside the disc, or the kb cutout) so sparkle only lands on the icon body.
+    size_t idx = ((size_t)y * LCD_WIDTH + (size_t)x) * 2u;
+    if (lcd_surface_fb[idx] == 0 && lcd_surface_fb[idx + 1] == 0) {
+        return;
+    }
 
-                // Draw the filled cell inside the outline if it's alive
-                if (grid[y][x]) {
-                    switch (color_value) {
-                        case 0:
-                            qp_rect(lcd_surface, left + OUTLINE_SIZE, top + OUTLINE_SIZE, right - OUTLINE_SIZE, bottom - OUTLINE_SIZE, HSV_LAYER_0, true);
-                            break;
-                        case 1:
-                            qp_rect(lcd_surface, left + OUTLINE_SIZE, top + OUTLINE_SIZE, right - OUTLINE_SIZE, bottom - OUTLINE_SIZE, HSV_LAYER_1, true);
-                            break;
-                        case 2:
-                            qp_rect(lcd_surface, left + OUTLINE_SIZE, top + OUTLINE_SIZE, right - OUTLINE_SIZE, bottom - OUTLINE_SIZE, HSV_LAYER_2, true);
-                            break;
-                        case 3:
-                            qp_rect(lcd_surface, left + OUTLINE_SIZE, top + OUTLINE_SIZE, right - OUTLINE_SIZE, bottom - OUTLINE_SIZE, HSV_LAYER_3, true);
-                            break;
-                        case 4:
-                            qp_rect(lcd_surface, left + OUTLINE_SIZE, top + OUTLINE_SIZE, right - OUTLINE_SIZE, bottom - OUTLINE_SIZE, HSV_LAYER_4, true);
-                            break;
-                        case 5:
-                            qp_rect(lcd_surface, left + OUTLINE_SIZE, top + OUTLINE_SIZE, right - OUTLINE_SIZE, bottom - OUTLINE_SIZE, HSV_LAYER_5, true);
-                            break;
-                        case 6:
-                            qp_rect(lcd_surface, left + OUTLINE_SIZE, top + OUTLINE_SIZE, right - OUTLINE_SIZE, bottom - OUTLINE_SIZE, HSV_LAYER_6, true);
-                            break;
-                        case 7:
-                            qp_rect(lcd_surface, left + OUTLINE_SIZE, top + OUTLINE_SIZE, right - OUTLINE_SIZE, bottom - OUTLINE_SIZE, HSV_LAYER_7, true);
-                            break;
-                        default:
-                            qp_rect(lcd_surface, left + OUTLINE_SIZE, top + OUTLINE_SIZE, right - OUTLINE_SIZE, bottom - OUTLINE_SIZE, HSV_LAYER_UNDEF, true);
-                    }
-                }
-            }
+    // Random vivid color: any hue, biased saturated + bright.
+    uint8_t h = rand() & 0xFF;
+    uint8_t s = 160 + (rand() & 0x5F);
+    uint8_t v = 200 + (rand() & 0x3F);
+
+    // Store in ring buffer so it survives layer switches.
+    sparkles[sparkle_next] = (sparkle_t){(uint16_t)x, (uint16_t)y, h, s, v};
+    sparkle_next           = (sparkle_next + 1) % SPARKLE_BUFFER_SIZE;
+    if (sparkle_count < SPARKLE_BUFFER_SIZE) sparkle_count++;
+
+    qp_setpixel(lcd_surface, x, y, h, s, v);
+}
+
+static void draw_mods_row(uint8_t mods, bool macos_mode) {
+    // Clear mod band
+    qp_rect(lcd_surface, 0, MOD_SLOT_Y, LCD_WIDTH - 1, MOD_SLOT_Y + MOD_SLOT_H - 1, HSV_BLACK, true);
+
+    // 4 slots, 33 px wide, with 1 px gaps at x=33,67,101 (total = 4*33 + 3 = 135).
+    static const int slot_left[4]  = {0, 34, 68, 102};
+    static const int slot_width[4] = {33, 33, 33, 33};
+    // In mac mode the host has Ctrl/GUI swapped, so flip the masks to match what
+    // each finger actually sends.
+    const uint8_t masks[4] = {
+        MOD_MASK_GUI,
+        MOD_MASK_ALT,
+        MOD_MASK_CTRL,
+        MOD_MASK_SHIFT,
+    };
+    // const uint8_t masks[4] = {
+    //     macos_mode ? MOD_MASK_CTRL : MOD_MASK_GUI,
+    //     MOD_MASK_ALT,
+    //     macos_mode ? MOD_MASK_GUI : MOD_MASK_CTRL,
+    //     MOD_MASK_SHIFT,
+    // };
+
+    // Icons show what each finger does on the host.
+    // Mac mode  : A=Ctrl,   S=Alt, D=Cmd(⌘), F=Shift -> ⌃ ⌥ ⌘ ⇧
+    // Non-mac   : A=GUI(◆), S=Alt, D=Ctrl,    F=Shift -> ◆ ⌥ ⌃ ⇧
+    painter_image_handle_t icons[4] = {
+        // macos_mode ? mod_icons[0] /*Ctrl*/ : diamond_mod_icon /*◆*/,
+        diamond_mod_icon /* ◆ = GUI */,
+        mod_icons[1] /*Alt*/,
+        // macos_mode ? mod_icons[2] /*Cmd*/ : mod_icons[0] /*Ctrl*/,
+        mod_icons[0] /*Ctrl*/,
+        mod_icons[3] /*Shift*/,
+    };
+
+    for (int i = 0; i < 4; i++) {
+        bool active = (mods & masks[i]) != 0;
+        // Center on the image's real size — diamond_mod is 30x30, not MOD_ICON_SIZE.
+        int icon_x  = slot_left[i] + (slot_width[i] - icons[i]->width) / 2;
+        int icon_y  = MOD_SLOT_Y + (MOD_SLOT_H - icons[i]->height) / 2;
+        int x_left  = slot_left[i];
+        int x_right = slot_left[i] + slot_width[i] - 1;
+        int y_top   = MOD_SLOT_Y;
+        int y_bot   = MOD_SLOT_Y + MOD_SLOT_H - 1;
+
+        painter_image_handle_t icon = icons[i];
+
+        if (active) {
+            filled_rounded_rect(lcd_surface, x_left, y_top, x_right, y_bot, HSV_WHITE);
+            qp_drawimage_recolor(lcd_surface, icon_x, icon_y, icon, HSV_BLACK, HSV_WHITE);
+        } else {
+            qp_drawimage_recolor(lcd_surface, icon_x, icon_y, icon, HSV_ICON_DIM, HSV_BLACK);
         }
     }
 }
 
-void update_grid() {
-    for (int y = 0; y < GRID_HEIGHT; y++) {
-        for (int x = 0; x < GRID_WIDTH; x++) {
-            int alive_neighbors = 0;
+static void draw_locks_row(led_t leds, bool caps_word, bool macos_mode) {
+    // Clear lock band
+    qp_rect(lcd_surface, 0, LOCK_SLOT_Y, LCD_WIDTH - 1, LOCK_SLOT_Y + LOCK_SLOT_H - 1, HSV_BLACK, true);
 
-            // Count alive neighbors
-            for (int dy = -1; dy <= 1; dy++) {
-                for (int dx = -1; dx <= 1; dx++) {
-                    if (dy == 0 && dx == 0) continue; // Skip the current cell
-                    int ny = y + dy;
-                    int nx = x + dx;
-                    if (ny >= 0 && ny < GRID_HEIGHT && nx >= 0 && nx < GRID_WIDTH) {
-                        alive_neighbors += grid[ny][nx];
-                    }
-                }
-            }
+    // 3 slots: 44/44/45 px wide, with 1 px gaps at x=44 and x=89 (total = 135).
+    static const int slot_left[3]  = {0, 45, 90};
+    static const int slot_width[3] = {44, 44, 45};
 
-            // Apply the rules of the Game of Life
-            if (grid[y][x]) {
-                // Any live cell with two or three live neighbours survives.
-                new_grid[y][x] = (alive_neighbors == 2 || alive_neighbors == 3);
-            } else {
-                // Any dead cell with exactly three live neighbours becomes a live cell.
-                new_grid[y][x] = (alive_neighbors == 3);
-            }
+    // Slot 2 (CG_TOGG): apple in mac mode, diamond otherwise. The icon itself
+    // conveys the state; the slot never lights up (no white background).
+    const bool             active[3] = {caps_word, leds.caps_lock, false};
+    painter_image_handle_t icons[3]  = {
+        lock_icons[0],
+        lock_icons[1],
+        macos_mode ? mac_icon : nonmac_icon,
+    };
 
-            // Track changed cells
-            changed_grid[y][x] = (grid[y][x] != new_grid[y][x]);
-        }
-    }
+    const int icon_y = LOCK_SLOT_Y + (LOCK_SLOT_H - LOCK_ICON_SIZE) / 2;
 
-    // Copy new grid state to current grid
-    for (int y = 0; y < GRID_HEIGHT; y++) {
-        for (int x = 0; x < GRID_WIDTH; x++) {
-            grid[y][x] = new_grid[y][x];
+    for (int i = 0; i < 3; i++) {
+        int icon_x  = slot_left[i] + (slot_width[i] - LOCK_ICON_SIZE) / 2;
+        int x_left  = slot_left[i];
+        int x_right = slot_left[i] + slot_width[i] - 1;
+        int y_top   = LOCK_SLOT_Y;
+        int y_bot   = LOCK_SLOT_Y + LOCK_SLOT_H - 1;
+
+        if (active[i]) {
+            filled_rounded_rect(lcd_surface, x_left, y_top, x_right, y_bot, HSV_WHITE);
+            qp_drawimage_recolor(lcd_surface, icon_x, icon_y, icons[i], HSV_BLACK, HSV_WHITE);
+        } else {
+            qp_drawimage_recolor(lcd_surface, icon_x, icon_y, icons[i], HSV_ICON_DIM, HSV_BLACK);
         }
     }
 }
 
-// Function to add a cluster of cells at a random position
-void add_cell_cluster() {
-    int cluster_size = 3; // Size of the cluster (3x3)
-    int x            = rand() % (GRID_WIDTH - cluster_size);
-    int y            = rand() % (GRID_HEIGHT - cluster_size);
-
-    for (int dy = 0; dy < cluster_size; dy++) {
-        for (int dx = 0; dx < cluster_size; dx++) {
-            bool is_alive                = rand() % 2; // Randomly choose between 0 and 1
-            grid[y + dy][x + dx]         = is_alive;   // Set the cell to be alive
-            changed_grid[y + dy][x + dx] = true;       // Mark the cell as changed
-        }
-    }
+// Whether the host is being driven in "mac mode" (Cmd/Ctrl swapped on the
+// labeled-LCTL home-row key). This hardware ships an Apple icon for the swap-on
+// state, so the display interprets CG_TOGG-on as Mac mode by default. Slave
+// halves don't get keymap_config updates, so the keymap can override this weak
+// default to return a split-synced value.
+__attribute__((weak)) bool hlc_macos_mode(void) {
+    return keymap_config.swap_lctl_lgui;
 }
 
 void update_display(void) {
-    static bool first_run_led   = false;
-    static bool first_run_layer = false;
+    uint8_t cur_layer      = get_highest_layer(layer_state | default_layer_state);
+    uint8_t cur_mods       = get_mods() | get_oneshot_mods() | get_weak_mods();
+    led_t   cur_leds       = host_keyboard_led_state();
+    bool    cur_caps_word  = is_caps_word_on();
+    bool    cur_macos_mode = hlc_macos_mode();
 
-    if (first_run_layer == false) {
-        // Load fonts
-        Retron27           = qp_load_font_mem(font_Retron2000_27);
-        Retron27_underline = qp_load_font_mem(font_Retron2000_underline_27);
+    // bool mac_changed = (cur_macos_mode != last_macos_mode);
+
+    if (cur_layer != last_layer) {
+        draw_layer_icon(cur_layer);
+        last_layer = cur_layer;
     }
-
-    if (last_led_usb_state.raw != host_keyboard_led_state().raw || first_run_led == false) {
-        led_t led_usb_state = host_keyboard_led_state();
-
-        led_usb_state.caps_lock ? qp_drawtext_recolor(lcd_surface, 5, LCD_HEIGHT - Retron27->line_height * 3 - 15, Retron27_underline, caps, HSV_CAPS_ON, HSV_BLACK) : qp_drawtext_recolor(lcd_surface, 5, LCD_HEIGHT - Retron27->line_height * 3 - 15, Retron27, caps, HSV_CAPS_OFF, HSV_BLACK);
-        led_usb_state.num_lock ? qp_drawtext_recolor(lcd_surface, 5, LCD_HEIGHT - Retron27->line_height * 2 - 10, Retron27_underline, num, HSV_NUM_ON, HSV_BLACK) : qp_drawtext_recolor(lcd_surface, 5, LCD_HEIGHT - Retron27->line_height * 2 - 10, Retron27, num, HSV_NUM_OFF, HSV_BLACK);
-        led_usb_state.scroll_lock ? qp_drawtext_recolor(lcd_surface, 5, LCD_HEIGHT - Retron27->line_height - 5, Retron27_underline, scroll, HSV_SCROLL_ON, HSV_BLACK) : qp_drawtext_recolor(lcd_surface, 5, LCD_HEIGHT - Retron27->line_height - 5, Retron27, scroll, HSV_SCROLL_OFF, HSV_BLACK);
-
-        last_led_usb_state = led_usb_state;
-        first_run_led      = true;
+    if (cur_mods != last_mods) {
+        // if (cur_mods != last_mods || mac_changed) {
+        draw_mods_row(cur_mods, cur_macos_mode);
+        last_mods = cur_mods;
     }
-
-    if (last_layer_state != layer_state || first_run_layer == false) {
-        switch (get_highest_layer(layer_state | default_layer_state)) {
-            case 0:
-                layer_number = qp_load_image_mem(gfx_0);
-                qp_drawimage_recolor(lcd_surface, 5, 5, layer_number, HSV_LAYER_0, HSV_BLACK);
-                break;
-            case 1:
-                layer_number = qp_load_image_mem(gfx_1);
-                qp_drawimage_recolor(lcd_surface, 5, 5, layer_number, HSV_LAYER_1, HSV_BLACK);
-                break;
-            case 2:
-                layer_number = qp_load_image_mem(gfx_2);
-                qp_drawimage_recolor(lcd_surface, 5, 5, layer_number, HSV_LAYER_2, HSV_BLACK);
-                break;
-            case 3:
-                layer_number = qp_load_image_mem(gfx_3);
-                qp_drawimage_recolor(lcd_surface, 5, 5, layer_number, HSV_LAYER_3, HSV_BLACK);
-                break;
-            case 4:
-                layer_number = qp_load_image_mem(gfx_4);
-                qp_drawimage_recolor(lcd_surface, 5, 5, layer_number, HSV_LAYER_4, HSV_BLACK);
-                break;
-            case 5:
-                layer_number = qp_load_image_mem(gfx_5);
-                qp_drawimage_recolor(lcd_surface, 5, 5, layer_number, HSV_LAYER_5, HSV_BLACK);
-                break;
-            case 6:
-                layer_number = qp_load_image_mem(gfx_6);
-                qp_drawimage_recolor(lcd_surface, 5, 5, layer_number, HSV_LAYER_6, HSV_BLACK);
-                break;
-            case 7:
-                layer_number = qp_load_image_mem(gfx_7);
-                qp_drawimage_recolor(lcd_surface, 5, 5, layer_number, HSV_LAYER_7, HSV_BLACK);
-                break;
-            default:
-                layer_number = qp_load_image_mem(gfx_undef);
-                qp_drawimage_recolor(lcd_surface, 5, 5, layer_number, HSV_LAYER_UNDEF, HSV_BLACK);
-        }
-        qp_close_image(layer_number);
-        last_layer_state = layer_state;
-        first_run_layer  = true;
+    if (cur_leds.raw != last_led_state.raw || cur_caps_word != last_caps_word) {
+        // if (cur_leds.raw != last_led_state.raw || cur_caps_word != last_caps_word || mac_changed) {
+        draw_locks_row(cur_leds, cur_caps_word, cur_macos_mode);
+        last_led_state = cur_leds;
+        last_caps_word = cur_caps_word;
     }
+    last_macos_mode = cur_macos_mode;
 }
 
 // Called from halcyon.c
@@ -255,14 +269,11 @@ void module_suspend_wakeup_init_kb(void) {
 
 // Called from halcyon.c
 bool module_post_init_kb(void) {
-    // Turn on backlight
     backlight_enable();
 
-    // Make the devices
     lcd         = qp_st7789_make_spi_device(LCD_WIDTH, LCD_HEIGHT, LCD_CS_PIN, LCD_DC_PIN, LCD_RST_PIN, LCD_SPI_DIVISOR, LCD_SPI_MODE);
     lcd_surface = qp_make_rgb565_surface(LCD_WIDTH, LCD_HEIGHT, lcd_surface_fb);
 
-    // Initialise the LCD
     qp_init(lcd, LCD_ROTATION);
     qp_set_viewport_offsets(lcd, LCD_OFFSET_X, LCD_OFFSET_Y);
     qp_clear(lcd);
@@ -270,16 +281,40 @@ bool module_post_init_kb(void) {
     qp_power(lcd, true);
     qp_flush(lcd);
 
-    // Initialise the LCD surface
     qp_init(lcd_surface, LCD_ROTATION);
     qp_rect(lcd_surface, 0, 0, LCD_WIDTH - 1, LCD_HEIGHT - 1, HSV_BLACK, true);
+
+    // Load icons (held for firmware lifetime)
+    layer_icons[0] = qp_load_image_mem(gfx_splitkb);
+    layer_icons[1] = qp_load_image_mem(gfx_calculate);    //  󱖦 
+    layer_icons[2] = qp_load_image_mem(gfx_data_object);  // 󰘦  
+    layer_icons[3] = qp_load_image_mem(gfx_open_with);    // 4 arrows?  
+    layer_icons[4] = qp_load_image_mem(gfx_settings);     //   
+    layer_icons[5] = qp_load_image_mem(gfx_functions);    // 󰊕 󰡱
+    layer_icons[6] = qp_load_image_mem(gfx_window_tiles); // _WINDOW (was _MEDIA / music_note) // 󰐎
+    layer_icons[7] = qp_load_image_mem(gfx_trackpad_input);
+    layer_icons[8] = qp_load_image_mem(gfx_mouse); // 󰍽
+
+    mod_icons[0]     = qp_load_image_mem(gfx_keyboard_control_key);
+    mod_icons[1]     = qp_load_image_mem(gfx_keyboard_option_key);
+    mod_icons[2]     = qp_load_image_mem(gfx_keyboard_command_key);
+    mod_icons[3]     = qp_load_image_mem(gfx_shift);
+    diamond_mod_icon = qp_load_image_mem(gfx_diamond_mod);
+
+    lock_icons[0] = qp_load_image_mem(gfx_uppercase);
+    lock_icons[1] = qp_load_image_mem(gfx_keyboard_capslock);
+    mac_icon      = qp_load_image_mem(gfx_apple_logo);
+    nonmac_icon   = qp_load_image_mem(gfx_diamond);
+
     qp_surface_draw(lcd_surface, lcd, 0, 0, 0);
     qp_flush(lcd);
+
+    // Seed for splitkb_logo_sparkle (cosmetic; quality of seed doesn't matter much).
+    srand((unsigned int)timer_read32());
 
     if (!module_post_init_user()) {
         return false;
     }
-
     return true;
 }
 
@@ -289,39 +324,27 @@ bool display_module_housekeeping_task_kb(bool second_display) {
         return false;
     }
 
-    if (second_display) {
-        static uint32_t last_draw                     = 0;
-        static bool     second_display_set            = false;
-        static uint32_t previous_matrix_activity_time = 0;
+    update_display();
 
-        if (!second_display_set) {
-            srand(get_random_32bit());
-            init_grid();
-            color_value        = rand() % 8;
-            second_display_set = true;
-        }
-
-        if (timer_elapsed32(last_draw) >= 100) { // Throttle to 10 fps
-            draw_grid();
-            update_grid();
-
-            if (previous_matrix_activity_time != last_matrix_activity_time()) {
-                color_value = rand() % 8;
-                add_cell_cluster();
-                previous_matrix_activity_time = last_matrix_activity_time();
-            }
-
-            last_draw = timer_read32();
-        }
+    // Surface diffing only re-sends regions whose framebuffer content changed;
+    // it can't see panel-side corruption (a glitched SPI window command lands
+    // pixels at the wrong panel location, and this board's power rail has a
+    // brownout history — see the keymap NOTES). Without a resync such garbage
+    // stays on screen forever, so periodically re-push the whole framebuffer.
+    // Deferred while the user is actively typing: the full-frame SPI transfer
+    // blocks the matrix for ~20 ms.
+    static uint32_t last_resync = 0;
+    bool            full_resync = timer_elapsed32(last_resync) >= HLC_TFT_RESYNC_INTERVAL_MS && last_input_activity_elapsed() >= 250;
+    if (full_resync) {
+        last_resync = timer_read32();
+        // qp_surface_draw skips the transfer when the surface isn't dirty,
+        // even with entire_surface set — toggle one always-black corner pixel
+        // (rows 0–3 are outside every band) to arm it.
+        qp_setpixel(lcd_surface, 0, 0, HSV_WHITE);
+        qp_setpixel(lcd_surface, 0, 0, HSV_BLACK);
     }
 
-    // Update display information (layers, numlock, etc.)
-    if (!second_display) {
-        update_display();
-    }
-
-    // Move surface to lcd
-    qp_surface_draw(lcd_surface, lcd, 0, 0, 0);
+    qp_surface_draw(lcd_surface, lcd, 0, 0, full_resync);
     qp_flush(lcd);
 
     return true;

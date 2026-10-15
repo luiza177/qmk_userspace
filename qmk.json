@@ -3,22 +3,6 @@
     "build_targets": [
         [
             "splitkb/halcyon/kyria/rev4",
-            "default_hlc",
-            {
-                "HLC_TFT_DISPLAY": "1",
-                "TARGET": "halcyon_kyria_default_display"
-            }
-        ],
-        [
-            "splitkb/halcyon/kyria/rev4",
-            "default_hlc",
-            {
-                "HLC_CIRQUE_TRACKPAD": "1",
-                "TARGET": "halcyon_kyria_default_trackpad"
-            }
-        ],
-        [
-            "splitkb/halcyon/kyria/rev4",
             "custom_hlc_dualencoders",
             {
                 "HLC_CIRQUE_TRACKPAD": "1",
