@@ -1,6 +1,7 @@
 // Copyright 2024 splitkb.com (support@splitkb.com)
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <stdint.h>
 #include "keycodes.h"
 #include "modifiers.h"
 #include QMK_KEYBOARD_H
@@ -15,16 +16,14 @@ enum layers {
     // _GTR_PRO
 };
 
-// Q: possible to check system to determine keys?
 // TODO: adjust trackpad inertia
+// TODO: detect OS for ESZETT and EURO keycommands / undo/redo
 
+// LAYERS
 // TODO: gaming layer
 // TODO: guitar-pro layer
 
-// TODO: KC_WBAK and _WFWD (browser backward/forward)
-// TODO: undo/redo
-// TODO: brightness up/down
-
+// LIGHTS and RGB
 // TODO: UNDERGLOW
 // TODO: Per-key / per-layer lighting: assign each layer a color (num = blue, sym = green, adj = red, f = magenta, ? = yellow, ? = media = orange)
 
@@ -35,8 +34,6 @@ enum layers {
  * XXXXXXX / KC_NO     Does nothing (blocks the key)
  * CW_TOGG             Caps Word: capitalizes one word, auto-ends
  *                     (needs CAPS_WORD_ENABLE = yes in rules.mk)
- * QK_REP              Repeat the last key pressed
- * QK_AREP             Alternate repeat (can be customized per key)
  *
  * ---- LAYER SWITCHING ------------------------------------------------
  * MO(n)               Momentary: layer n active while held
@@ -61,7 +58,7 @@ enum layers {
  * KC_RSFT KC_RCTL KC_RALT KC_RGUI   Right versions
  *
  * LSFT(kc) LCTL(kc) LALT(kc) LGUI(kc)  Send kc with that modifier
- *                     (also S(kc), C(kc), A(kc), G(kc))
+ *                     (also S(kc), C(kc), A(kc), G(kc)) // HINT: maybe this for homerow in sym layer?
  *
  * HYPR(kc)            Ctrl+Shift+Alt+Gui together with kc
  * MEH(kc)             Ctrl+Shift+Alt together with kc
@@ -89,14 +86,6 @@ enum layers {
  *   ACTION_TAP_DANCE_LAYER_TOGGLE(kc, layer) tap = kc, 2 taps = toggle
  *   ACTION_TAP_DANCE_FN_ADVANCED(...)        full custom control
  * Timing uses TAPPING_TERM.
- *
- * ---- COMBOS (press several keys together = another key) ------------
- * Needs COMBO_ENABLE = yes in rules.mk. Easiest: create combos.def
- * next to keymap.c, one line per combo:
- *     COMB(esc_combo, KC_ESC, KC_Q, KC_W)
- *     COMB(ent_combo, KC_ENT, KC_K, KC_L)
- * Timing: COMBO_TERM (config.h) = max ms between the key presses.
- * Keep combos on keys you don't roll through while typing.
  *
  * ---- KEY OVERRIDES (change a modifier+key result) ------------------
  * Needs KEY_OVERRIDE_ENABLE = yes in rules.mk.
@@ -156,7 +145,6 @@ enum layers {
 #define CTL_K MT(MOD_LCTL, KC_K)
 #define SFT_F MT(MOD_LSFT, KC_F)
 #define SFT_J MT(MOD_RSFT, KC_J)
-
 // num-func layer
 #define GUI_F8 MT(MOD_LCTL, KC_F8)
 #define GUI_PPLUS MT(MOD_LCTL, KC_PPLS)
@@ -166,8 +154,20 @@ enum layers {
 #define CTL_5 MT(MOD_LCTL, KC_5)
 #define SFT_F5 MT(MOD_LSFT, KC_F5)
 #define SFT_4 MT(MOD_RSFT, KC_4)
-
 // sym layer
+
+// Combos
+enum combos { JK_ESC, DF_TAB, LSEMI_ENTER };
+
+const uint16_t PROGMEM jk_combo[]    = {SFT_J, CTL_K, COMBO_END};
+const uint16_t PROGMEM df_combo[]    = {CTL_D, SFT_F, COMBO_END};
+const uint16_t PROGMEM lsemi_combo[] = {ALT_L, GUI_SEMI, COMBO_END};
+
+combo_t key_combos[] = {
+    [JK_ESC]      = COMBO(jk_combo, KC_ESC),
+    [DF_TAB]      = COMBO(df_combo, KC_TAB),
+    [LSEMI_ENTER] = COMBO(lsemi_combo, KC_ENTER),
+};
 
 // There is an extra row added for the Halcyon modules. Currently only the Encoder module is
 // supported but we reserve 5 keys per half for future expansion. Your personal keymap will also
@@ -178,17 +178,17 @@ enum layers {
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 /*
  * Base Layer: QWERTY
- *  Q: Enc1/Enc2 click?
- *  Q: Swap Num and Nav?
- *  Q: Move menu elsewhere?
+ *  TODO: change thumb alt into nav (right), so thumb bkspc is free. left thumb alt can be??
+ *  TODO: right pinky bkspc and shift for - and =???
  *  Q: Trilayers?
+ *  Q: undo/redo
  *
  * ,-------------------------------------------.                              ,-------------------------------------------.
  * |  Tab   |   Q  |   W  |   E  |   R  |   T  |                              |   Y  |   U  |   I  |   O  |   P  |  Bksp  |
  * |--------+------+------+------+------+------|                              |------+------+------+------+------+--------|
  * |Ctrl/Esc|   A  |   S  |   D  |   F  |   G  | - _                      = + |   H  |   J  |   K  |   L  | ;  : | Ctrl/' | or Enter?
  * |--------+------+------+------+------+------+-------------.  ,-------------+------+------+------+------+------+--------|
- * | LShift |   Z  |   X  |   C  |   V  |   B  |      |      |  |      |      |   N  |   M  | ,  < | . >  | /  ? | RShift |
+ * | LShift |   Z  |   X  |   C  |   V  |   B  |      |CapsW?|  | back |  fwd |   N  |   M  | ,  < | . >  | /  ? | RShift |
  * `----------------------+------+------+------+------+------|  |------+------+------+------+------+----------------------'
  *                        | Adj/ | LGUI |Space/| LAlt/| Del  |  |Bkspc/| Alt/ |Space/| RGUI | ???  |
  *                        | Menu |      |  Sym | Bkspc|      |  | Nav  | Enter| Num  |      |      |
@@ -197,7 +197,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     [_QWERTY] = LAYOUT(
      KC_TAB  , KC_Q ,  KC_W   ,  KC_E  ,   KC_R ,   KC_T ,                                          KC_Y,    KC_U,     KC_I,   KC_O,    KC_P,  KC_BSPC,
      CTL_ESC , GUI_A,  ALT_S  ,  CTL_D ,   SFT_F,   KC_G ,                                          KC_H,   SFT_J,    CTL_K,  ALT_L,GUI_SEMI, CTL_QUOT,
-     KC_LSFT , KC_Z ,  KC_X   ,  KC_C  ,   KC_V ,   KC_B , XXXXXXX,CW_TOGG,     XXXXXXX, XXXXXXX,   KC_N,    KC_M,  KC_COMM, KC_DOT, KC_SLSH,  KC_RSFT,
+     KC_LSFT , KC_Z ,  KC_X   ,  KC_C  ,   KC_V ,   KC_B ,XXXXXXX, CW_TOGG,     KC_WBAK, KC_WFWD,   KC_N,    KC_M,  KC_COMM, KC_DOT, KC_SLSH,  KC_RSFT,
                               MENU_ADJ, KC_LGUI, SPC_SYM, ALT_ENT,  KC_DEL,   BKSPC_NAV, ALT_ENT,SPC_NUM, KC_RGUI,  XXXXXXX
     ),
 
@@ -205,11 +205,11 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
  * Number/F-key Layer
  *
  * ,-------------------------------------------.                              ,-------------------------------------------.
- * |        |  F9  | F10  | F11  | F12  |  xxx |                              | num /|   7  |   8  |   9  | num =|        |
+ * |        |  F9  | F10  | F11  | F12  |      |                              | num /|   7  |   8  |   9  | num =|        |
  * |--------+------+------+------+------+------|                              |------+------+------+------+------+--------|
  * |        |  F8  |  F7  |  F6  |  F5  | Print|                              | num *|   4  |   5  |   6  | num +| enter? |
  * |--------+------+------+------+------+------+-------------.  ,-------------+------+------+------+------+------+--------|
- * |        |  F4  |  F3  |  F2  |  F1  |  xxx |      |LyrLck|  |      |      |   0  |   1  |   2  |   3  | num -|        |
+ * |        |  F4  |  F3  |  F2  |  F1  |      |      |LyrLck|  |      |      |   0  |   1  |   2  |   3  | num -|        |
  * `----------------------+------+------+------+------+------|  |------+------+------+------+------+----------------------'
  *                        |      |      |      |      |      |  |      |      |      |      |      |
  *                        |      |      |      |      |      |  |      |      |      |      |      |
@@ -226,29 +226,29 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
  * Symbol layer
  *
  * ,-------------------------------------------.                              ,-------------------------------------------.
- * |        |  xxx |  EUR |   ~  |   `  |   (  |                              |   )  |   +  |   *  |  xxx |  xxx |        |
+ * |        |      |  EUR |   ~  |   `  |   (  |                              |   )  |   +  |   *  |      |      |        |
  * |--------+------+------+------+------+------|                              |------+------+------+------+------+--------|
  * |        |   !  |  @   |   ^  |   |  |   [  |                              |   ]  |   -  |   =  |   _  |   "  |  enter |
  * |--------+------+------+------+------+------+-------------.  ,-------------+------+------+------+------+------+--------|
- * |        |esszet|  $   |   &  |   \  |   {  |      |LyrLck|  |      |      |   }  |   /  |   %  |   #  |   ?  |
+ * |        |eszett|  $   |   &  |   \  |   {  |      |LyrLck|  |      |      |   }  |   /  |   %  |   #  |   ?  |
  * `----------------------+------+------+------+------+------|  |------+------+------+------+------+-------------+--------'
  *                        |      |      |      |      |      |  |      |      |      |      |      |
  *                        |      |      |      |      |      |  |      |      |      |      |      |
  *                        `----------------------------------'  `----------------------------------'
  */
 // TEST: needs testing and adjusting positions
-// TODO: shifted ANSI can't be used for homerow mods, needs alternative
+// FIXME: modtap for sym layer... note that if mod-tap mod is pressed before layer change, mod remains activated
     [_SYM] = LAYOUT(
-      _______, XXXXXXX, _______, KC_TILD,  KC_GRV, KC_LPRN,                                     KC_RPRN, KC_PLUS, KC_ASTR, XXXXXXX, XXXXXXX, _______,
+      _______, XXXXXXX, XXXXXXX, KC_TILD,  KC_GRV, KC_LPRN,                                     KC_RPRN, KC_PLUS, KC_ASTR, XXXXXXX, XXXXXXX, _______,
       _______, KC_EXLM,   KC_AT, KC_CIRC, KC_PIPE, KC_LBRC,                                     KC_RBRC, KC_MINS,  KC_EQL, KC_UNDS, KC_DQUO,  KC_ENT,
-      _______, _______,  KC_DLR, KC_AMPR, KC_BSLS, KC_LCBR, _______, QK_LLCK, _______, _______, KC_RCBR, KC_SLSH, KC_PERC, KC_HASH, KC_QUES, _______,
+      _______, XXXXXXX,  KC_DLR, KC_AMPR, KC_BSLS, KC_LCBR, _______, QK_LLCK, _______, _______, KC_RCBR, KC_SLSH, KC_PERC, KC_HASH, KC_QUES, _______,
                                  _______, _______, _______, _______, _______, _______, _______, _______, _______, _______
     ),
 
 /*
  * Nav Layer: Media, navigation
  *
- *  TODO: add MacOS display brightness
+ *  TODO: add MacOS display brightness, KC_BRIU/KC_BRID
  * ,-------------------------------------------.                              ,-------------------------------------------.
  * |        |      |      |      |      |      |                              | Home | PgDn | PgUp | End  | Ins  |        |
  * |--------+------+------+------+------+------|                              |------+------+------+------+------+--------|
@@ -271,8 +271,10 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 /*
  * Adjust Layer: Default layer settings, RGB
  *  TODO: trackpad tap = LMB or RMB
+ *  TODO: MacOS toggle, for undo/redo, fwd/back,  etc
+ *  HINT: CG_TOGG for swapping CTRL and GUI, AG_TOGG for ALT and GUI
  * ,-------------------------------------------.                              ,-------------------------------------------.
- * |        |      |      |      |      |      |                              |      |      |      |      |      |        |
+ * |        |      |      |      |      |      |                              |      |accel2|accel1|accel0|      |  boot  |
  * |--------+------+------+------+------+------|                              |------+------+------+------+------+--------|
  * |        |      |      |      | BLI  |      |                              | TOG  | SAI  | HUI  | VAI  | MOD  |        |
  * |--------+------+------+------+------+------+-------------.  ,-------------+------+------+------+------+------+--------|
@@ -283,9 +285,9 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
  *                        `----------------------------------'  `----------------------------------'
  */
     [_ADJUST] = LAYOUT(
-      XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX,                                    XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX,
+      XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX,                                    XXXXXXX, MS_ACL2, MS_ACL1, MS_ACL0, XXXXXXX, QK_BOOT,
       XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX,   BL_UP, XXXXXXX,                                    RM_TOGG, RM_SATU, RM_HUEU, RM_VALU, RM_NEXT, XXXXXXX,
-      XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, BL_DOWN, XXXXXXX,_______, _______, _______, _______, XXXXXXX, RM_SATD, RM_HUED, RM_VALD, RM_PREV, XXXXXXX,
+      XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, BL_DOWN, XXXXXXX,XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, RM_SATD, RM_HUED, RM_VALD, RM_PREV, XXXXXXX,
                                  _______, _______, _______,_______, _______, _______, _______, _______, _______, _______
     ),
 
