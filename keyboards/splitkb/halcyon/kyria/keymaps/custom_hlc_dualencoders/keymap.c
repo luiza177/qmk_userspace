@@ -169,6 +169,16 @@ combo_t key_combos[] = {
     [LSEMI_ENTER] = COMBO(lsemi_combo, KC_ENTER),
 };
 
+bool get_combo_must_tap(uint16_t index, combo_t *combo) {
+    switch (index) {
+        case JK_ESC:
+        case DF_TAB:
+        case LSEMI_ENTER:
+            return true;
+    }
+    return false;
+}
+
 // There is an extra row added for the Halcyon modules. Currently only the Encoder module is
 // supported but we reserve 5 keys per half for future expansion. Your personal keymap will also
 // need to be updated to include this row, and the `LAYOUT` macro will need to be updated to

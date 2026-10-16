@@ -7,7 +7,7 @@
 // // #define TAPPING_TERM_PER_KEY
 
 // INFO: tap then press again within this = key repeat, not hold
-#define QUICK_TAP_TERM 80
+#define QUICK_TAP_TERM 100
 
 // HINT: Needs hand info; if it misbehaves, see QMK's Chordal Hold docs for chordal_hold_layout
 // #define CHORDAL_HOLD // INFO: opposite-hand rolls = hold, same-hand rolls = tap
@@ -22,6 +22,7 @@
 // INFO: for Combos (a+b=c)
 #define COMBO_TERM 30 // ms window to press all combo keys
 #undef COMBO_MUST_PRESS_IN_ORDER
+#define COMBO_MUST_TAP_PER_COMBO
 // #define COMBO_ONLY_FROM_LAYER 0  // combos work only on this layer
 
 // INFO: for encoders
