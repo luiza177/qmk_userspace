@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include "keycodes.h"
 #include "modifiers.h"
+#include "rgb_matrix.h"
 #include QMK_KEYBOARD_H
 
 enum layers {
@@ -208,7 +209,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
      KC_TAB  , KC_Q ,  KC_W   ,  KC_E  ,   KC_R ,   KC_T ,                                          KC_Y,    KC_U,     KC_I,   KC_O,    KC_P,  KC_BSPC,
      CTL_ESC , GUI_A,  ALT_S  ,  CTL_D ,   SFT_F,   KC_G ,                                          KC_H,   SFT_J,    CTL_K,  ALT_L,GUI_SEMI, CTL_QUOT,
      KC_LSFT , KC_Z ,  KC_X   ,  KC_C  ,   KC_V ,   KC_B ,XXXXXXX, CW_TOGG,     KC_WBAK, KC_WFWD,   KC_N,    KC_M,  KC_COMM, KC_DOT, KC_SLSH,  KC_RSFT,
-                              MENU_ADJ, KC_LGUI, SPC_SYM, ALT_ENT,  KC_DEL,   BKSPC_NAV, ALT_ENT,SPC_NUM, KC_RGUI,  XXXXXXX
+                               MENU_ADJ, KC_LGUI, SPC_SYM,ALT_ENT,  KC_DEL,   BKSPC_NAV, ALT_ENT,SPC_NUM, KC_RGUI,  XXXXXXX
     ),
 
 /*
@@ -389,3 +390,8 @@ const uint16_t right_halcyon_buttons[10][5] = {
     [_ADJUST] =     { _______, _______, _______, _______, _______ }
 };
 #endif
+
+void keyboard_post_init_user(void) {
+    rgb_matrix_enable_noeeprom();
+    rgb_matrix_mode_noeeprom(RGB_MATRIX_CUSTOM_layer_colors);
+}
