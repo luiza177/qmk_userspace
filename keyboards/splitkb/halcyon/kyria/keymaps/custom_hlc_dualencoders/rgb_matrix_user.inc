@@ -2,126 +2,165 @@ RGB_MATRIX_EFFECT(layer_colors)
 
 #ifdef RGB_MATRIX_CUSTOM_EFFECT_IMPLS
 
-typedef struct { uint8_t r, g, b; } color_t;
-
-typedef struct {
-    uint8_t first, last;   // inclusive LED index range
-    color_t color;
-} region_t;
-
-typedef struct {
-    color_t         underglow;
-    color_t         background;   // any key LED not covered by a region
-    const region_t *regions;
-    uint8_t         count;
-} layer_def_t;
-
-// ---- colors ----
-#define COL_OFF     {0x00, 0x00, 0x00}
-#define COL_WHITE   {0xff, 0xff, 0xff}
-#define COL_YELLOW  {0xff, 0xff, 0x00}
-#define COL_ORANGE  {0xff, 0x88, 0x00}
-#define COL_CYAN    {0x00, 0xff, 0xff}
-#define COL_BLUE    {0x00, 0x00, 0xff}
-#define COL_MAGENTA {0xff, 0x00, 0xff}
-#define COL_GREEN   {0x00, 0xff, 0x00}
-#define COL_RED     {0xff, 0x00, 0x00}
-
-// ---- LED groups (shared between layers) ----
-#define LEFT_THUMB   6, 12
-#define RIGHT_THUMB  37, 41
-
-// TODO: Per-key / per-layer lighting: assign each layer a color (num = blue, sym = green, adj = red, f = magenta, ? = yellow, ? = media = orange)
-
-// ---- layer 0: base ----
-static const region_t base_regions[] = {
-    {LEFT_THUMB,  COL_CYAN},
-    {RIGHT_THUMB, COL_CYAN},
-    {42, 43, COL_OFF},
-    {18, 18, COL_CYAN}, {24, 24, COL_CYAN}, {30, 30, COL_CYAN},
-    {49, 49, COL_CYAN}, {61, 61, COL_CYAN},
+// ---- palette names (grid cells use these) ----
+enum {
+    C_OFF, C_DIM, C_VDIM,                       // off, transparent keys, very dim
+    C_KEY, C_HOME, C_MOD, C_PUN, C_PUNH,       // base layer
+    C_TR, C_TG, C_TY, C_TB, C_TC,              // thumbs: adjust/sym/nav/num active keys, base cyan
+    C_NUM, C_OPR, C_NUMT,                       // num layer
+    C_F1, C_F2, C_F3, C_F4, C_F5, C_F6,
+    C_F7, C_F8, C_F9, C_F10, C_F11, C_F12,     // func gradient
+    C_BRK, C_MTH, C_COD, C_TXT, C_SYMT,        // sym layer
+    C_ARW, C_NAVK, C_NAVM, C_MED, C_NAVT,      // nav layer
+    C_ADJ, C_ACC, C_BL, C_BOOT, C_ADJT,        // adjust layer
+    C_GBASE, C_GNUM, C_GFUNC, C_GSYM, C_GNAV, C_GADJ,   // underglow
+    C_COUNT
 };
 
-// ---- layer 1: num/func ----
-static const region_t num_func_regions[] = {
-    {LEFT_THUMB,  COL_CYAN},
-    {RIGHT_THUMB, COL_CYAN},
+// ---- palette values {hue, sat, val}: tune by eye ----
+static const uint8_t PROGMEM palette[][3] = {
+    [C_OFF]   = {  0,   0,   0},
+    [C_DIM]   = {150,  26,  80},   // transparent keys
+    [C_VDIM]  = {  0,   0,   8},   // back/forward
 
-    {50, 50, COL_CYAN}, {56, 56, COL_CYAN}, {48, 48, COL_CYAN}, {54, 55, COL_CYAN}, {60, 60, COL_CYAN},
-    {44, 47, COL_BLUE},    {51, 53, COL_BLUE},    {57, 59, COL_BLUE},     // num
-    {14, 17, COL_MAGENTA}, {20, 23, COL_MAGENTA}, {26, 29, COL_MAGENTA},  // func
+    [C_KEY]   = {131,  85, 160},   // base letters, warm neutral
+    [C_HOME]  = {131,  47, 255},   // home-row mods
+    [C_MOD]   = {131,  64,  80},   // outer mods, dim
+    [C_PUN]   = {161, 109, 168},   // , . / '
+    [C_PUNH]  = {161, 109, 255},   // ;   (bright + tint)
 
-    {18, 18, COL_CYAN}, {24, 24, COL_CYAN}, {30, 30, COL_CYAN},
-    {49, 49, COL_CYAN}, {61, 61, COL_CYAN},
+    [C_TR]    = {252, 255, 255},   // adjust thumb
+    [C_TG]    = { 93, 255, 255},   // sym thumb
+    [C_TY]    = { 29, 255, 255},   // nav thumb
+    [C_TB]    = {157, 255, 255},   // num thumb
+    [C_TC]    = {131, 220, 255},   // other thumbs on base
+
+    [C_NUM]   = {164, 255, 255},   // digits
+    [C_OPR]   = {139, 239, 230},   // operators, enter, print screen
+    [C_NUMT]  = {159, 255, 180},   // idle thumbs, lock
+
+    [C_F1]    = {189, 255, 240},   // purple -> pink ramp: hue only
+    [C_F2]    = {194, 255, 240},
+    [C_F3]    = {198, 255, 240},
+    [C_F4]    = {202, 255, 240},
+    [C_F5]    = {206, 255, 240},
+    [C_F6]    = {209, 255, 240},
+    [C_F7]    = {213, 255, 240},
+    [C_F8]    = {217, 255, 240},
+    [C_F9]    = {221, 255, 240},
+    [C_F10]   = {225, 255, 240},
+    [C_F11]   = {228, 255, 240},
+    [C_F12]   = {232, 255, 240},
+
+    [C_BRK]   = { 96, 230, 200},   // ( ) [ ] { }   teal
+    [C_MTH]   = { 70, 255, 240},   // + - * / = %   lime
+    [C_COD]   = { 93, 255, 208},   // | & ^ ~ \ `   emerald
+    [C_TXT]   = { 92, 200, 216},   // ! @ $ # _ " ? mint
+    [C_SYMT]  = { 96, 255, 150},   // idle thumbs, lock, enter
+
+    [C_ARW]   = { 30,  23, 255},   // arrows
+    [C_NAVK]  = { 28,  46, 176},   // home/end/pgup/pgdn/ins
+    [C_NAVM]  = { 28, 120, 180},   // gui/alt/ctrl/shift
+    [C_MED]   = { 13, 255, 255},   // media
+    [C_NAVT]  = { 28, 255, 150},   // idle thumbs, lock, enter
+
+    [C_ADJ]   = {245, 255, 208},   // RGB controls
+    [C_ACC]   = {  9, 255, 255},   // mouse accel
+    [C_BL]    = {250, 255, 100},   // backlight
+    [C_BOOT]  = { 74, 255, 255},   // QK_BOOT
+    [C_ADJT]  = {250, 255, 160},   // idle thumbs
+
+    [C_GBASE] = {132,  64,  180},   // underglow
+    [C_GNUM]  = {163, 255,  180},
+    [C_GFUNC] = {223, 255,  180},
+    [C_GSYM]  = { 85, 255,  180},
+    [C_GNAV]  = { 35, 255,  180},
+    [C_GADJ]  = {248, 255,  180},
 };
+_Static_assert(ARRAY_SIZE(palette) == C_COUNT, "palette and enum are out of sync");
 
-// ---- layer 2: sym ----
-static const region_t sym_regions[] = {
-    // keys with a symbol assigned
-    {13, 17, COL_GREEN}, {19, 23, COL_GREEN}, {25, 28, COL_GREEN},
-    {44, 48, COL_GREEN}, {50, 58, COL_GREEN},
+// TODO: layer thumbs retain color
+// TODO: fix odd keys (eg. layer lock, prtscn, etc) to match layer's hue
 
-    // assumed transparent: thumbs and mod positions
-    {LEFT_THUMB,  COL_CYAN}, {11, 11, COL_GREEN},
-    {RIGHT_THUMB, COL_CYAN},
-    {18, 18, COL_CYAN}, {24, 24, COL_CYAN}, {30, 30, COL_CYAN},
-    {49, 49, COL_CYAN}, {61, 61, COL_CYAN},
-};
-
-// ---- layer 3: nav ----
-static const region_t nav_regions[] = {
-    {20, 23, COL_YELLOW}, {44, 46, COL_ORANGE}, {50,53, COL_YELLOW}, {55, 60, COL_YELLOW},
-
-    {LEFT_THUMB,  COL_CYAN}, {11, 12, COL_YELLOW},
-    {RIGHT_THUMB, COL_CYAN},
-    {18, 18, COL_CYAN}, {24, 24, COL_CYAN}, {30, 30, COL_CYAN},
-    {49, 49, COL_CYAN}, {61, 61, COL_CYAN},
-};
-
-// ---- layer 4: adjust ----
-static const region_t adj_regions[] = {
-    {14, 14, COL_RED}, {20, 20, COL_RED}, {50, 54, COL_RED}, {45, 48, COL_RED}, {57, 59, COL_RED}, {61, 61, COL_RED},
-
-    {LEFT_THUMB,  COL_CYAN},
-    {RIGHT_THUMB, COL_CYAN},
-};
-
-// ---- layer 5: gaming ----
-
-// ---- layer 6: guitar pro ----
-
-// Index = layer number. Keep in sync with your keymap's layer enum.
-static const layer_def_t layers[] = {
-    [0] = { COL_WHITE, COL_WHITE, base_regions,     ARRAY_SIZE(base_regions) },
-    [1] = { COL_CYAN,   COL_OFF,   num_func_regions, ARRAY_SIZE(num_func_regions) },
-    [2] = { COL_GREEN,  COL_OFF,   sym_regions,      ARRAY_SIZE(sym_regions) },
-    [3] = { COL_YELLOW,  COL_OFF,   nav_regions,      ARRAY_SIZE(nav_regions) },
-    [4] = { COL_RED,  COL_OFF,   adj_regions,      ARRAY_SIZE(adj_regions) },
-};
-
-static color_t color_for_led(const layer_def_t *def, uint8_t i) {
-    if (HAS_FLAGS(g_led_config.flags[i], LED_FLAG_UNDERGLOW)) {
-        return def->underglow;
-    }
-    for (uint8_t n = 0; n < def->count; n++) {   // first match wins
-        if (i >= def->regions[n].first && i <= def->regions[n].last) {
-            return def->regions[n].color;
-        }
-    }
-    return def->background;
+// ---- GRID: arguments follow your LAYOUT() order; names are LED numbers ----
+// gl/gr = left/right underglow
+#define GRID(gl, gr, \
+    k30,k29,k28,k27,k26,k25,                    k56,k57,k58,k59,k60,k61, \
+    k24,k23,k22,k21,k20,k19,                    k50,k51,k52,k53,k54,k55, \
+    k18,k17,k16,k15,k14,k13,k12,k11,  k42,k43,k44,k45,k46,k47,k48,k49, \
+                k10,k9,k8,k7,k6,                k37,k38,k39,k40,k41) \
+{ \
+    [0 ... 5] = gl, [31 ... 36] = gr, \
+    [30]=k30, [29]=k29, [28]=k28, [27]=k27, [26]=k26, [25]=k25, \
+    [56]=k56, [57]=k57, [58]=k58, [59]=k59, [60]=k60, [61]=k61, \
+    [24]=k24, [23]=k23, [22]=k22, [21]=k21, [20]=k20, [19]=k19, \
+    [50]=k50, [51]=k51, [52]=k52, [53]=k53, [54]=k54, [55]=k55, \
+    [18]=k18, [17]=k17, [16]=k16, [15]=k15, [14]=k14, [13]=k13, [12]=k12, [11]=k11, \
+    [42]=k42, [43]=k43, [44]=k44, [45]=k45, [46]=k46, [47]=k47, [48]=k48, [49]=k49, \
+    [10]=k10, [9]=k9, [8]=k8, [7]=k7, [6]=k6, \
+    [37]=k37, [38]=k38, [39]=k39, [40]=k40, [41]=k41 \
 }
+
+// Index = layer number (0 base, 1 num/func, 2 sym, 3 nav, 4 adjust)
+static const uint8_t PROGMEM layer_map[][RGB_MATRIX_LED_COUNT] = {
+
+    // ---- 0: base ----
+    [0] = GRID(C_GBASE, C_GBASE,
+        C_MOD,  C_KEY,  C_KEY,  C_KEY,  C_KEY,  C_KEY,                                  C_KEY,  C_KEY,  C_KEY,  C_KEY,  C_KEY,  C_MOD,
+        C_MOD,  C_HOME, C_HOME, C_HOME, C_HOME, C_KEY,                                  C_KEY,  C_HOME, C_HOME, C_HOME, C_PUNH, C_PUN,
+        C_MOD,  C_KEY,  C_KEY,  C_KEY,  C_KEY,  C_KEY,  C_OFF,  C_MOD,  C_VDIM, C_VDIM, C_KEY,  C_KEY,  C_PUN,  C_PUN,  C_PUN,  C_MOD,
+                                C_TR,   C_TC,   C_TG,   C_TC,   C_TC,   C_TY,   C_TC,   C_TB,   C_TC,   C_OFF
+    ),
+
+    // ---- 1: num / func ----
+    [1] = GRID(C_GFUNC, C_GNUM,
+        C_DIM,  C_F9,   C_F10,  C_F11,  C_F12,  C_OFF,                                  C_OPR,  C_NUM,  C_NUM,  C_NUM,  C_OPR,  C_DIM,
+        C_DIM,  C_F8,   C_F7,   C_F6,   C_F5,   C_OPR,                                  C_OPR,  C_NUM,  C_NUM,  C_NUM,  C_OPR,  C_OPR,
+        C_DIM,  C_F4,   C_F3,   C_F2,   C_F1,   C_OFF,  C_DIM,  C_TB,   C_DIM,  C_DIM,  C_NUM,  C_NUM,  C_NUM,  C_NUM,  C_OPR,  C_DIM,
+                                C_NUMT, C_NUMT, C_NUMT, C_NUMT, C_NUMT, C_NUMT, C_NUMT, C_TB,   C_NUMT, C_OFF
+    ),
+
+    // ---- 2: sym ----
+    [2] = GRID(C_GSYM, C_GSYM,
+        C_DIM,  C_OFF,  C_OFF,  C_COD,  C_COD,  C_BRK,                                  C_BRK,  C_MTH,  C_MTH,  C_OFF,  C_OFF,  C_DIM,
+        C_DIM,  C_TXT,  C_TXT,  C_COD,  C_COD,  C_BRK,                                  C_BRK,  C_MTH,  C_MTH,  C_TXT,  C_TXT,  C_SYMT,
+        C_DIM,  C_OFF,  C_TXT,  C_COD,  C_COD,  C_BRK,  C_DIM,  C_TG,   C_DIM,  C_DIM,  C_BRK,  C_MTH,  C_MTH,  C_TXT,  C_TXT,  C_DIM,
+                                C_SYMT, C_SYMT, C_TG,   C_SYMT, C_SYMT, C_SYMT, C_SYMT, C_SYMT, C_SYMT, C_OFF
+    ),
+
+    // ---- 3: nav ----
+    [3] = GRID(C_GNAV, C_GNAV,
+        C_DIM,  C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_OFF,                                  C_NAVK, C_NAVK, C_NAVK, C_NAVK, C_NAVK, C_DIM,
+        C_DIM,  C_NAVM, C_NAVM, C_NAVM, C_NAVM, C_OFF,                                  C_ARW,  C_ARW,  C_ARW,  C_ARW,  C_OFF,  C_NAVT,
+        C_DIM,  C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_MED,  C_TY,  C_DIM,  C_DIM,  C_MED,  C_MED,  C_MED,  C_OFF,  C_OFF,  C_DIM,
+                                C_NAVT, C_NAVT, C_NAVT, C_NAVT, C_NAVT, C_TY,   C_NAVT, C_NAVT, C_NAVT, C_OFF
+    ),
+
+    // ---- 4: adjust ----
+    [4] = GRID(C_GADJ, C_GADJ,
+        C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_OFF,                                  C_OFF,  C_ACC,  C_ACC,  C_ACC,  C_OFF,  C_BOOT,
+        C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_BL,   C_OFF,                                  C_ADJ,  C_ADJ,  C_ADJ,  C_ADJ,  C_ADJ,  C_OFF,
+        C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_BL,   C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_ADJ,  C_ADJ,  C_ADJ,  C_ADJ,  C_OFF,
+                                C_TR,   C_ADJT, C_ADJT, C_ADJT, C_ADJT, C_ADJT, C_ADJT, C_ADJT, C_ADJT, C_OFF
+    ),
+};
 
 static bool layer_colors(effect_params_t* params) {
     RGB_MATRIX_USE_LIMITS(led_min, led_max);
 
     uint8_t layer = get_highest_layer(layer_state | default_layer_state);
-    if (layer >= ARRAY_SIZE(layers)) layer = 0;   // undefined layers use base
-    const layer_def_t *def = &layers[layer];
+    if (layer >= ARRAY_SIZE(layer_map)) layer = 0;   // undefined layers use base
 
-    uint8_t val = rgb_matrix_get_val();           // keeps brightness keys working
+    uint8_t val = rgb_matrix_get_val();               // keeps brightness keys working
     for (uint8_t i = led_min; i < led_max; i++) {
-        color_t c = color_for_led(def, i);
-        rgb_matrix_set_color(i, c.r * val / 255, c.g * val / 255, c.b * val / 255);
+        uint8_t c = pgm_read_byte(&layer_map[layer][i]);
+        HSV hsv = {
+            pgm_read_byte(&palette[c][0]),
+            pgm_read_byte(&palette[c][1]),
+            (uint16_t)pgm_read_byte(&palette[c][2]) * val / 255,
+        };
+        RGB rgb = hsv_to_rgb(hsv);
+        rgb_matrix_set_color(i, rgb.r, rgb.g, rgb.b);
     }
     return rgb_matrix_check_finished_leds(led_max);
 }
