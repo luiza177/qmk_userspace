@@ -6,7 +6,7 @@ RGB_MATRIX_EFFECT(layer_colors)
 enum {
     C_OFF, C_DIM, C_VDIM,                       // off, transparent keys, very dim
     C_KEY, C_HOME, C_MOD, C_PUN, C_PUNH,       // base layer
-    C_TR, C_TG, C_TY, C_TB, C_TC,              // thumbs: adjust/sym/nav/num active keys, base cyan
+    C_TR, C_TRD, C_TG, C_TGD, C_TY, C_TYD, C_TB, C_TBD, C_TC, // thumbs: adjust/sym/nav/num active keys, base cyan and dimmed versions
     C_NUM, C_OPR, C_NUMT,                       // num layer
     C_F1, C_F2, C_F3, C_F4, C_F5, C_F6,
     C_F7, C_F8, C_F9, C_F10, C_F11, C_F12,     // func gradient
@@ -20,55 +20,59 @@ enum {
 // ---- palette values {hue, sat, val}: tune by eye ----
 static const uint8_t PROGMEM palette[][3] = {
     [C_OFF]   = {  0,   0,   0},
-    [C_DIM]   = {150,  26,  80},   // transparent keys
+    [C_DIM]   = {150,  26, 120},   // transparent keys
     [C_VDIM]  = {  0,   0,   8},   // back/forward
 
-    [C_KEY]   = {131,  85, 160},   // base letters, warm neutral
+    [C_KEY]   = {131,  85, 200},   // base letters, warm neutral
     [C_HOME]  = {131,  47, 255},   // home-row mods
-    [C_MOD]   = {131,  64,  80},   // outer mods, dim
-    [C_PUN]   = {161, 109, 168},   // , . / '
-    [C_PUNH]  = {161, 109, 255},   // ;   (bright + tint)
+    [C_MOD]   = {161, 150, 150},   // outer mods, dim
+    [C_PUN]   = {131, 120, 200},   // , . / '
+    [C_PUNH]  = {131, 120, 255},   // ;   (bright + tint)
 
     [C_TR]    = {252, 255, 255},   // adjust thumb
+    [C_TRD]   = {252, 255, 200},   // adjust thumb dimmed
     [C_TG]    = { 93, 255, 255},   // sym thumb
+    [C_TGD]   = { 93, 255, 200},   // sym thumb dimmed
     [C_TY]    = { 29, 255, 255},   // nav thumb
+    [C_TYD]   = { 29, 255, 200},   // nav thumb dimmed
     [C_TB]    = {157, 255, 255},   // num thumb
-    [C_TC]    = {131, 220, 255},   // other thumbs on base
+    [C_TBD]   = {157, 255, 200},   // num thumb dimmed
+    [C_TC]    = {131, 250, 230},   // other thumbs on base
 
     [C_NUM]   = {164, 255, 255},   // digits
     [C_OPR]   = {139, 239, 230},   // operators, enter, print screen
     [C_NUMT]  = {159, 255, 180},   // idle thumbs, lock
 
-    [C_F1]    = {189, 255, 240},   // purple -> pink ramp: hue only
-    [C_F2]    = {194, 255, 240},
-    [C_F3]    = {198, 255, 240},
-    [C_F4]    = {202, 255, 240},
-    [C_F5]    = {206, 255, 240},
-    [C_F6]    = {209, 255, 240},
-    [C_F7]    = {213, 255, 240},
-    [C_F8]    = {217, 255, 240},
-    [C_F9]    = {221, 255, 240},
-    [C_F10]   = {225, 255, 240},
-    [C_F11]   = {228, 255, 240},
-    [C_F12]   = {232, 255, 240},
+    [C_F1]    = {185, 255, 255},   // purple -> pink ramp: hue only
+    [C_F2]    = {190, 255, 255},
+    [C_F3]    = {195, 255, 255},
+    [C_F4]    = {200, 255, 255},
+    [C_F5]    = {205, 255, 240},
+    [C_F6]    = {210, 255, 240},
+    [C_F7]    = {215, 255, 240},
+    [C_F8]    = {220, 255, 240},
+    [C_F9]    = {225, 255, 240},
+    [C_F10]   = {230, 255, 240},
+    [C_F11]   = {235, 255, 240},
+    [C_F12]   = {240, 255, 240},
 
-    [C_BRK]   = { 96, 230, 200},   // ( ) [ ] { }   teal
-    [C_MTH]   = { 70, 255, 240},   // + - * / = %   lime
-    [C_COD]   = { 93, 255, 208},   // | & ^ ~ \ `   emerald
-    [C_TXT]   = { 92, 200, 216},   // ! @ $ # _ " ? mint
-    [C_SYMT]  = { 96, 255, 150},   // idle thumbs, lock, enter
+    [C_BRK]   = { 96, 220, 230},   // ( ) [ ] { }   teal
+    [C_MTH]   = { 70, 255, 215},   // + - * / = %   lime
+    [C_COD]   = { 93, 255, 220},   // | & ^ ~ \ `   emerald
+    [C_TXT]   = { 80, 255, 216},   // ! @ $ # _ " ? mint
+    [C_SYMT]  = { 80, 255, 200},   // idle thumbs, lock, enter
 
-    [C_ARW]   = { 30,  23, 255},   // arrows
-    [C_NAVK]  = { 28,  46, 176},   // home/end/pgup/pgdn/ins
-    [C_NAVM]  = { 28, 120, 180},   // gui/alt/ctrl/shift
+    [C_ARW]   = { 30, 100, 255},   // arrows
+    [C_NAVK]  = { 28, 150, 176},   // home/end/pgup/pgdn/ins
+    [C_NAVM]  = { 28, 255, 180},   // gui/alt/ctrl/shift
     [C_MED]   = { 13, 255, 255},   // media
     [C_NAVT]  = { 28, 255, 150},   // idle thumbs, lock, enter
 
     [C_ADJ]   = {245, 255, 208},   // RGB controls
     [C_ACC]   = {  9, 255, 255},   // mouse accel
-    [C_BL]    = {250, 255, 100},   // backlight
+    [C_BL]    = {250, 255, 150},   // backlight
     [C_BOOT]  = { 74, 255, 255},   // QK_BOOT
-    [C_ADJT]  = {250, 255, 160},   // idle thumbs
+    [C_ADJT]  = {250, 255, 180},   // idle thumbs
 
     [C_GBASE] = {132,  64,  180},   // underglow
     [C_GNUM]  = {163, 255,  180},
@@ -114,34 +118,34 @@ static const uint8_t PROGMEM layer_map[][RGB_MATRIX_LED_COUNT] = {
 
     // ---- 1: num / func ----
     [1] = GRID(C_GFUNC, C_GNUM,
-        C_DIM,  C_F9,   C_F10,  C_F11,  C_F12,  C_OFF,                                  C_OPR,  C_NUM,  C_NUM,  C_NUM,  C_OPR,  C_DIM,
-        C_DIM,  C_F8,   C_F7,   C_F6,   C_F5,   C_OPR,                                  C_OPR,  C_NUM,  C_NUM,  C_NUM,  C_OPR,  C_OPR,
-        C_DIM,  C_F4,   C_F3,   C_F2,   C_F1,   C_OFF,  C_DIM,  C_TB,   C_DIM,  C_DIM,  C_NUM,  C_NUM,  C_NUM,  C_NUM,  C_OPR,  C_DIM,
-                                C_NUMT, C_NUMT, C_NUMT, C_NUMT, C_NUMT, C_NUMT, C_NUMT, C_TB,   C_NUMT, C_OFF
+        C_DIM,  C_F9,   C_F10,  C_F11,  C_F12,  C_OFF,                                   C_OPR,  C_NUM,  C_NUM,  C_NUM,  C_OPR,  C_DIM,
+        C_DIM,  C_F8,   C_F7,   C_F6,   C_F5,   C_OPR,                                   C_OPR,  C_NUM,  C_NUM,  C_NUM,  C_OPR,  C_OPR,
+        C_DIM,  C_F4,   C_F3,   C_F2,   C_F1,   C_OFF,  C_DIM,  C_TB,   C_VDIM,  C_VDIM, C_NUM,  C_NUM,  C_NUM,  C_NUM,  C_OPR,  C_DIM,
+                                C_TRD,  C_NUMT, C_TGD, C_NUMT,  C_NUMT, C_TYD,   C_NUMT, C_TB,   C_NUMT, C_OFF
     ),
 
     // ---- 2: sym ----
     [2] = GRID(C_GSYM, C_GSYM,
         C_DIM,  C_OFF,  C_OFF,  C_COD,  C_COD,  C_BRK,                                  C_BRK,  C_MTH,  C_MTH,  C_OFF,  C_OFF,  C_DIM,
         C_DIM,  C_TXT,  C_TXT,  C_COD,  C_COD,  C_BRK,                                  C_BRK,  C_MTH,  C_MTH,  C_TXT,  C_TXT,  C_SYMT,
-        C_DIM,  C_OFF,  C_TXT,  C_COD,  C_COD,  C_BRK,  C_DIM,  C_TG,   C_DIM,  C_DIM,  C_BRK,  C_MTH,  C_MTH,  C_TXT,  C_TXT,  C_DIM,
-                                C_SYMT, C_SYMT, C_TG,   C_SYMT, C_SYMT, C_SYMT, C_SYMT, C_SYMT, C_SYMT, C_OFF
+        C_DIM,  C_OFF,  C_TXT,  C_COD,  C_COD,  C_BRK,  C_DIM,  C_TG,   C_VDIM, C_VDIM, C_BRK,  C_MTH,  C_MTH,  C_TXT,  C_TXT,  C_DIM,
+                                C_TRD,  C_SYMT, C_TG,   C_SYMT, C_SYMT, C_TYD,  C_SYMT, C_TBD,  C_SYMT, C_OFF
     ),
 
     // ---- 3: nav ----
     [3] = GRID(C_GNAV, C_GNAV,
         C_DIM,  C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_OFF,                                  C_NAVK, C_NAVK, C_NAVK, C_NAVK, C_NAVK, C_DIM,
         C_DIM,  C_NAVM, C_NAVM, C_NAVM, C_NAVM, C_OFF,                                  C_ARW,  C_ARW,  C_ARW,  C_ARW,  C_OFF,  C_NAVT,
-        C_DIM,  C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_MED,  C_TY,  C_DIM,  C_DIM,  C_MED,  C_MED,  C_MED,  C_OFF,  C_OFF,  C_DIM,
-                                C_NAVT, C_NAVT, C_NAVT, C_NAVT, C_NAVT, C_TY,   C_NAVT, C_NAVT, C_NAVT, C_OFF
+        C_DIM,  C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_MED,  C_TY,   C_VDIM, C_VDIM, C_MED,  C_MED,  C_MED,  C_OFF,  C_OFF,  C_DIM,
+                                C_TRD,  C_NAVT, C_TGD,  C_NAVT, C_NAVT, C_TY,   C_NAVT, C_TBD, C_NAVT, C_OFF
     ),
 
     // ---- 4: adjust ----
     [4] = GRID(C_GADJ, C_GADJ,
-        C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_OFF,                                  C_OFF,  C_ACC,  C_ACC,  C_ACC,  C_OFF,  C_BOOT,
+        C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_OFF,                                  C_ACC,  C_ACC,  C_ACC,  C_ACC,  C_OFF,  C_BOOT,
         C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_BL,   C_OFF,                                  C_ADJ,  C_ADJ,  C_ADJ,  C_ADJ,  C_ADJ,  C_OFF,
         C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_BL,   C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_ADJ,  C_ADJ,  C_ADJ,  C_ADJ,  C_OFF,
-                                C_TR,   C_ADJT, C_ADJT, C_ADJT, C_ADJT, C_ADJT, C_ADJT, C_ADJT, C_ADJT, C_OFF
+                                C_TR,   C_ADJT, C_TGD,  C_ADJT, C_ADJT, C_TYD,  C_ADJT, C_TBD,  C_ADJT, C_OFF
     ),
 };
 

@@ -290,10 +290,10 @@ bool module_post_init_kb(void) {
     layer_icons[2] = qp_load_image_mem(gfx_data_object);  // 󰘦  
     layer_icons[3] = qp_load_image_mem(gfx_open_with);    // 4 arrows?  
     layer_icons[4] = qp_load_image_mem(gfx_settings);     //   
-    layer_icons[5] = qp_load_image_mem(gfx_functions);    // 󰊕 󰡱
-    layer_icons[6] = qp_load_image_mem(gfx_window_tiles); // _WINDOW (was _MEDIA / music_note) // 󰐎
-    layer_icons[7] = qp_load_image_mem(gfx_trackpad_input);
-    layer_icons[8] = qp_load_image_mem(gfx_mouse); // 󰍽
+    layer_icons[5] = qp_load_image_mem(gfx_mouse);        // 󰍽
+    layer_icons[6] = qp_load_image_mem(gfx_functions);    // 󰊕 󰡱
+    layer_icons[7] = qp_load_image_mem(gfx_window_tiles); // _WINDOW (was _MEDIA / music_note) // 󰐎
+    layer_icons[8] = qp_load_image_mem(gfx_trackpad_input);
 
     mod_icons[0]     = qp_load_image_mem(gfx_keyboard_control_key);
     mod_icons[1]     = qp_load_image_mem(gfx_keyboard_option_key);

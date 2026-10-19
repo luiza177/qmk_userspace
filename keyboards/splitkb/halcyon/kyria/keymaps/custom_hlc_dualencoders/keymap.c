@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include "keycodes.h"
 #include "modifiers.h"
+#include "pointing_device.h"
+#include "report.h"
 #include "rgb_matrix.h"
 #include QMK_KEYBOARD_H
 
@@ -13,20 +15,75 @@ enum layers {
     _SYM,
     _NAV,
     _ADJUST,
+    _AUTO_MOUSE,
     // _GAMING,
     // _GTR_PRO
 };
 
-// TODO: adjust trackpad inertia
-// TODO: detect OS for ESZETT and EURO keycommands / undo/redo
+enum custom_keycodes {
+    U_SWAP_BTN = SAFE_RANGE,
+    // U_OS_TOGG,
+    // U_WBAK,
+    // U_WFWD,
+    // U_EUR,
+    // U_ESZ,
+};
+static bool    swap_btns    = false;
+static uint8_t swapped_held = 0; // button bits we are currently holding
+
+bool process_record_user(uint16_t keycode, keyrecord_t *record) {
+    switch (keycode) {
+        case U_SWAP_BTN:
+            if (record->event.pressed) {
+                swap_btns    = !swap_btns;
+                swapped_held = 0; // avoid a stuck button when toggling mid-hold
+            }
+            return false;
+        case MS_BTN1:
+        case MS_BTN2:
+            if (swap_btns) {
+                uint8_t btn = (keycode == MS_BTN1) ? (1 << 1) : (1 << 0);
+                if (record->event.pressed)
+                    swapped_held |= btn;
+                else
+                    swapped_held &= ~btn;
+                return false;
+            }
+            break;
+    }
+    return true;
+}
+
+report_mouse_t pointing_device_task_user(report_mouse_t r) {
+    r.buttons |= swapped_held; // reapply every report
+    return r;
+}
+
+// ===================================================================
+#ifdef HLC_TFT_DISPLAY
+// Defined in users/halcyon_modules/splitkb/hlc_tft_display/hlc_tft_display.c
+void splitkb_logo_sparkle(void);
+#endif
+
+#ifdef POINTING_DEVICE_AUTO_MOUSE_ENABLE
+void pointing_device_init_user(void) {
+    set_auto_mouse_enable(true);
+}
+#endif
+
+// TODO: OS swap button + restore display OS functionality
+// TODO: OS dependent browser forward/back
+// TODO: OS dependent EUR button
+// TODO: OS dependent ESZETT button
+// TODO: display icon for Left vs right mouse buttons
 
 // LAYERS
-// TODO: gaming layer
-// TODO: guitar-pro layer
+// TODO: gaming layer + LED map
+// TODO: guitar-pro layer + LED map
 
-// LIGHTS and RGB
-// TODO: UNDERGLOW
-// TODO: Per-key / per-layer lighting: assign each layer a color (num = blue, sym = green, adj = red, f = magenta, ? = yellow, ? = media = orange)
+// TODO: RGB effects
+// TODO: Auto-mouse layer LEDs
+// TODO: Adjust layer buttons reflect state
 
 /* HINT: QMK FEATURE CRASH COURSE: =========================================
  *
@@ -158,16 +215,18 @@ enum layers {
 // sym layer
 
 // Combos
-enum combos { JK_ESC, DF_TAB, LSEMI_ENTER };
+enum combos { JK_ESC, DF_TAB, LSEMI_ENTER, MS_MID };
 
 const uint16_t PROGMEM jk_combo[]    = {SFT_J, CTL_K, COMBO_END};
 const uint16_t PROGMEM df_combo[]    = {CTL_D, SFT_F, COMBO_END};
 const uint16_t PROGMEM lsemi_combo[] = {ALT_L, GUI_SEMI, COMBO_END};
+const uint16_t PROGMEM mouse_combo[] = {MS_BTN1, MS_BTN2, COMBO_END};
 
 combo_t key_combos[] = {
     [JK_ESC]      = COMBO(jk_combo, KC_ESC),
     [DF_TAB]      = COMBO(df_combo, KC_TAB),
     [LSEMI_ENTER] = COMBO(lsemi_combo, KC_ENTER),
+    [MS_MID]      = COMBO(mouse_combo, MS_BTN3),
 };
 
 bool get_combo_must_tap(uint16_t index, combo_t *combo) {
@@ -252,7 +311,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     [_SYM] = LAYOUT(
       _______, XXXXXXX, XXXXXXX, KC_TILD,  KC_GRV, KC_LPRN,                                     KC_RPRN, KC_PLUS, KC_ASTR, XXXXXXX, XXXXXXX, _______,
       _______, KC_EXLM,   KC_AT, KC_CIRC, KC_PIPE, KC_LBRC,                                     KC_RBRC, KC_MINS,  KC_EQL, KC_UNDS, KC_DQUO,  KC_ENT,
-      _______, XXXXXXX,  KC_DLR, KC_AMPR, KC_BSLS, KC_LCBR, _______, QK_LLCK, _______, _______, KC_RCBR, KC_SLSH, KC_PERC, KC_HASH, KC_QUES, _______,
+      _______, XXXXXXX,  KC_DLR, KC_AMPR, KC_BSLS, KC_LCBR, XXXXXXX, QK_LLCK, _______, _______, KC_RCBR, KC_SLSH, KC_PERC, KC_HASH, KC_QUES, _______,
                                  _______, _______, _______, _______, _______, _______, _______, _______, _______, _______
     ),
 
@@ -285,7 +344,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
  *  TODO: MacOS toggle, for undo/redo, fwd/back,  etc
  *  HINT: CG_TOGG for swapping CTRL and GUI, AG_TOGG for ALT and GUI
  * ,-------------------------------------------.                              ,-------------------------------------------.
- * |        |      |      |      |      |      |                              |      |accel2|accel1|accel0|      |  boot  |
+ * |        |      |      |      |      |      |                              |swap m|accel2|accel1|accel0|      |  boot  |
  * |--------+------+------+------+------+------|                              |------+------+------+------+------+--------|
  * |        |      |      |      | BLI  |      |                              | TOG  | SAI  | HUI  | VAI  | MOD  |        |
  * |--------+------+------+------+------+------+-------------.  ,-------------+------+------+------+------+------+--------|
@@ -296,10 +355,31 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
  *                        `----------------------------------'  `----------------------------------'
  */
     [_ADJUST] = LAYOUT(
-      XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX,                                    XXXXXXX, MS_ACL2, MS_ACL1, MS_ACL0, XXXXXXX, QK_BOOT,
+      XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX,                                 U_SWAP_BTN, MS_ACL2, MS_ACL1, MS_ACL0, XXXXXXX, QK_BOOT,
       XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX,   BL_UP, XXXXXXX,                                    RM_TOGG, RM_SATU, RM_HUEU, RM_VALU, RM_NEXT, XXXXXXX,
       XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, BL_DOWN, XXXXXXX,XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, RM_SATD, RM_HUED, RM_VALD, RM_PREV, XXXXXXX,
                                  _______, _______, _______,_______, _______, _______, _______, _______, _______, _______
+    ),
+
+/*
+ * Auto-Mouse layer
+ *
+ * ,-------------------------------------------.                              ,-------------------------------------------.
+ * |        |      |      |      |      |      |                              |      |      |      |      |      |        |
+ * |--------+------+------+------+------+------|                              |------+------+------+------+------+--------|
+ * |        |      |      |      |      |      |                              |      |      |      |      |      |        |
+ * |--------+------+------+------+------+------+-------------.  ,-------------+------+------+------+------+------+--------|
+ * |        |      |      |      |      |      |      |      |  |  LMB |      |      |      |      |      |      |        |
+ * `----------------------+------+------+------+------+------|  |------+------+------+------+------+----------------------'
+ *                        |      |      |      |      |      |  |  RMB |      |      |      |      |
+ *                        |      |      |      |      |      |  |      |      |      |      |      |
+ *                        `----------------------------------'  `----------------------------------'
+ */
+    [_AUTO_MOUSE] = LAYOUT(
+    _______, _______, _______, _______, _______, _______,                                     _______, _______, _______, _______, _______, _______,
+    _______, _______, _______, _______, _______, _______,                                     _______, _______, _______, _______, _______, _______,
+    _______, _______, _______, _______, _______, _______, _______, _______, MS_BTN1, _______, _______, _______, _______, _______, _______, _______,
+                               _______, _______, _______, _______, _______, MS_BTN2, _______, _______, _______, _______
     ),
 
 // /*
@@ -333,6 +413,7 @@ const uint16_t PROGMEM encoder_map[][NUM_ENCODERS][NUM_DIRECTIONS] = {
     [2] = { ENCODER_CCW_CW(_______, _______),  ENCODER_CCW_CW(_______, _______),  ENCODER_CCW_CW(_______, _______),  ENCODER_CCW_CW(_______, _______)  },
     [3] = { ENCODER_CCW_CW(_______, _______),  ENCODER_CCW_CW(_______, _______),  ENCODER_CCW_CW(_______, _______),  ENCODER_CCW_CW(_______, _______)  },
     [4] = { ENCODER_CCW_CW(_______, _______),  ENCODER_CCW_CW(_______, _______),  ENCODER_CCW_CW(_______, _______),  ENCODER_CCW_CW(_______, _______)  },
+    [5] = { ENCODER_CCW_CW(_______, _______),  ENCODER_CCW_CW(_______, _______),  ENCODER_CCW_CW(_______, _______),  ENCODER_CCW_CW(_______, _______)  },
 };
 
 // WARN: might be wrong
@@ -379,7 +460,8 @@ const uint16_t left_halcyon_buttons[10][5] = {
     [_NUM_FUNC] =   { _______, _______, _______, _______, _______ },
     [_SYM] =        { _______, _______, _______, _______, _______ },
     [_NAV] =        { _______, _______, _______, _______, _______ },
-    [_ADJUST] =     { _______, _______, _______, _______, _______ }
+    [_ADJUST] =     { _______, _______, _______, _______, _______ },
+    [_AUTO_MOUSE] = { _______, _______, _______, _______, _______ }
 };
 
 const uint16_t right_halcyon_buttons[10][5] = {
@@ -387,7 +469,8 @@ const uint16_t right_halcyon_buttons[10][5] = {
     [_NUM_FUNC] =   { _______, _______, _______, _______, _______ },
     [_SYM] =        { _______, _______, _______, _______, _______ },
     [_NAV] =        { _______, _______, _______, _______, _______ },
-    [_ADJUST] =     { _______, _______, _______, _______, _______ }
+    [_ADJUST] =     { _______, _______, _______, _______, _______ },
+    [_AUTO_MOUSE] = { _______, _______, _______, _______, _______ }
 };
 #endif
 
