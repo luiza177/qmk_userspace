@@ -7,6 +7,7 @@
 #include "pointing_device.h"
 #include "report.h"
 #include "rgb_matrix.h"
+#include "transactions.h"
 #include QMK_KEYBOARD_H
 
 enum layers {
@@ -22,21 +23,100 @@ enum layers {
 
 enum custom_keycodes {
     U_SWAP_BTN = SAFE_RANGE,
-    // U_OS_TOGG,
-    // U_WBAK,
-    // U_WFWD,
-    // U_EUR,
-    // U_ESZ,
+    U_OS_TOGG,
+    U_WBAK,
+    U_WFWD,
+    U_EUR,
+    U_ESZ,
 };
+
+// Aliases for readability
+
+// Layer macros
+#define SPC_NUM LT(_NUM_FUNC, KC_SPC)
+#define SPC_SYM LT(_SYM, KC_SPC)
+#define BKSPC_NAV LT(_NAV, KC_BSPC)
+#define MENU_ADJ LT(_ADJUST, KC_APP)
+
+// Mod-tap macros
+// Base layer:
+#define CTL_ESC MT(MOD_LCTL, KC_ESC)
+#define CTL_QUOT MT(MOD_RCTL, KC_QUOTE)
+#define CTL_MINS MT(MOD_RCTL, KC_MINUS)
+#define ALT_ENT MT(MOD_LALT, KC_ENT)
+// homerow mods
+#define GUI_A MT(MOD_LGUI, KC_A)
+#define GUI_SEMI MT(MOD_LGUI, KC_SCLN)
+#define ALT_S MT(MOD_LALT, KC_S)
+#define ALT_L MT(MOD_LALT, KC_L)
+#define CTL_D MT(MOD_LCTL, KC_D)
+#define CTL_K MT(MOD_LCTL, KC_K)
+#define SFT_F MT(MOD_LSFT, KC_F)
+#define SFT_J MT(MOD_RSFT, KC_J)
+// num-func layer
+#define GUI_F8 MT(MOD_LCTL, KC_F8)
+#define GUI_PPLUS MT(MOD_LCTL, KC_PPLS)
+#define ALT_F7 MT(MOD_LALT, KC_F7)
+#define ALT_6 MT(MOD_LALT, KC_6)
+#define CTL_F6 MT(MOD_LCTL, KC_F6)
+#define CTL_5 MT(MOD_LCTL, KC_5)
+#define SFT_F5 MT(MOD_LSFT, KC_F5)
+#define SFT_4 MT(MOD_RSFT, KC_4)
+// sym layer
+#define SYM_EXLM GUI_T(KC_1)
+#define SYM_AT ALT_T(KC_2)
+#define SYM_CIRC CTL_T(KC_6)
+#define SYM_PIPE SFT_T(KC_BSLS)
+
 static bool    swap_btns    = false;
 static uint8_t swapped_held = 0; // button bits we are currently holding
+static bool    is_mac       = false;
+
+static void is_mac_sync_handler(uint8_t in_len, const void *in_data, uint8_t out_len, void *out_data) {
+    if (in_len == sizeof(bool)) {
+        is_mac = *(const bool *)in_data;
+    }
+}
+
+#define SET_NOT_MAC (1 << 0)
+#define SET_SWAP (1 << 1)
+
+static void settings_save(void) {
+    eeconfig_update_user((is_mac ? 0 : SET_NOT_MAC) | (swap_btns ? SET_SWAP : 0));
+}
+
+static void set_mac(bool mac) {
+    if (mac != is_mac) {
+        is_mac = mac;
+        settings_save();
+    }
+}
+
+#ifdef HLC_TFT_DISPLAY
+// Defined in users/halcyon_modules/splitkb/hlc_tft_display/hlc_tft_display.c
+void splitkb_logo_sparkle(void);
+
+bool hlc_macos_mode(void) {
+    return is_mac;
+}
+#endif
+
+#ifdef POINTING_DEVICE_AUTO_MOUSE_ENABLE
+void pointing_device_init_user(void) {
+    set_auto_mouse_enable(true);
+}
+#endif
 
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
+#ifdef HLC_TFT_DISPLAY
+    splitkb_logo_sparkle();
+#endif
     switch (keycode) {
         case U_SWAP_BTN:
             if (record->event.pressed) {
                 swap_btns    = !swap_btns;
                 swapped_held = 0; // avoid a stuck button when toggling mid-hold
+                settings_save();
             }
             return false;
         case MS_BTN1:
@@ -50,6 +130,42 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
                 return false;
             }
             break;
+        case U_OS_TOGG:
+            // if (record->event.pressed) is_mac = !is_mac;
+            if (record->event.pressed) set_mac(!is_mac);
+            return false;
+        case U_WBAK:
+            if (record->event.pressed) tap_code16(is_mac ? G(KC_LEFT) : A(KC_LEFT));
+            return false;
+        case U_WFWD:
+            if (record->event.pressed) tap_code16(is_mac ? G(KC_RIGHT) : A(KC_RIGHT));
+            return false;
+        case U_EUR:
+            if (record->event.pressed) tap_code16(is_mac ? S(A(KC_2)) : RALT(KC_5));
+            return false;
+        case U_ESZ:
+            if (record->event.pressed) tap_code16(is_mac ? A(KC_S) : RALT(KC_S));
+            return false;
+        case SYM_EXLM:
+            if (record->tap.count && record->event.pressed) {
+                tap_code16(KC_EXLM);
+                return false;
+            }
+        case SYM_AT:
+            if (record->tap.count && record->event.pressed) {
+                tap_code16(KC_AT);
+                return false;
+            }
+        case SYM_CIRC:
+            if (record->tap.count && record->event.pressed) {
+                tap_code16(KC_CIRC);
+                return false;
+            }
+        case SYM_PIPE:
+            if (record->tap.count && record->event.pressed) {
+                tap_code16(KC_PIPE);
+                return false;
+            }
     }
     return true;
 }
@@ -59,28 +175,59 @@ report_mouse_t pointing_device_task_user(report_mouse_t r) {
     return r;
 }
 
-// ===================================================================
-#ifdef HLC_TFT_DISPLAY
-// Defined in users/halcyon_modules/splitkb/hlc_tft_display/hlc_tft_display.c
-void splitkb_logo_sparkle(void);
-#endif
+void keyboard_post_init_user(void) {
+    transaction_register_rpc(USER_SYNC_IS_MAC, is_mac_sync_handler);
+    rgb_matrix_enable_noeeprom();
+    rgb_matrix_mode_noeeprom(RGB_MATRIX_CUSTOM_layer_colors);
 
-#ifdef POINTING_DEVICE_AUTO_MOUSE_ENABLE
-void pointing_device_init_user(void) {
-    set_auto_mouse_enable(true);
+    uint32_t s = eeconfig_read_user();
+    is_mac     = !(s & SET_NOT_MAC);
+    swap_btns  = (s & SET_SWAP) != 0;
 }
-#endif
 
-// TODO: OS swap button + restore display OS functionality
-// TODO: OS dependent browser forward/back
-// TODO: OS dependent EUR button
-// TODO: OS dependent ESZETT button
+void housekeeping_task_user(void) {
+    if (!is_keyboard_master()) return;
+    static bool     last_sent = true;
+    static uint32_t last_sync = 0;
+    if (is_mac != last_sent || timer_elapsed32(last_sync) > 1000) {
+        if (transaction_rpc_send(USER_SYNC_IS_MAC, sizeof(is_mac), &is_mac)) {
+            last_sent = is_mac;
+            last_sync = timer_read32();
+        }
+    }
+}
+
+bool process_detected_host_os_user(os_variant_t detected_os) {
+    switch (detected_os) {
+        case OS_MACOS:
+        case OS_IOS:
+            // is_mac = true;
+            set_mac(true);
+            break;
+        case OS_WINDOWS:
+        case OS_LINUX:
+            // is_mac = false;
+            set_mac(false);
+            break;
+        default:
+            break; // OS_UNSURE: keep the saved/manual value
+    }
+    return true;
+}
+
+// ===================================================================
+// TODO: survive reset: OS / mouse btn swap
+// TODO: trackpad tap = LMB or RMB
+
+// DISPLAY
 // TODO: display icon for Left vs right mouse buttons
 
 // LAYERS
 // TODO: gaming layer + LED map
 // TODO: guitar-pro layer + LED map
 
+// LEDs
+// TODO: Homerow mods in SYM layer brighter LEDs
 // TODO: RGB effects
 // TODO: Auto-mouse layer LEDs
 // TODO: Adjust layer buttons reflect state
@@ -180,40 +327,6 @@ void pointing_device_init_user(void) {
  *   keyboard_post_init_user()               One-time startup code
  * =========================================================================*/
 
-// Aliases for readability
-
-// Layer macros
-#define SPC_NUM LT(_NUM_FUNC, KC_SPC)
-#define SPC_SYM LT(_SYM, KC_SPC)
-#define BKSPC_NAV LT(_NAV, KC_BSPC)
-#define MENU_ADJ LT(_ADJUST, KC_APP)
-
-// Mod-tap macros
-// Base layer:
-#define CTL_ESC MT(MOD_LCTL, KC_ESC)
-#define CTL_QUOT MT(MOD_RCTL, KC_QUOTE)
-#define CTL_MINS MT(MOD_RCTL, KC_MINUS)
-#define ALT_ENT MT(MOD_LALT, KC_ENT)
-// homerow mods
-#define GUI_A MT(MOD_LGUI, KC_A)
-#define GUI_SEMI MT(MOD_LGUI, KC_SCLN)
-#define ALT_S MT(MOD_LALT, KC_S)
-#define ALT_L MT(MOD_LALT, KC_L)
-#define CTL_D MT(MOD_LCTL, KC_D)
-#define CTL_K MT(MOD_LCTL, KC_K)
-#define SFT_F MT(MOD_LSFT, KC_F)
-#define SFT_J MT(MOD_RSFT, KC_J)
-// num-func layer
-#define GUI_F8 MT(MOD_LCTL, KC_F8)
-#define GUI_PPLUS MT(MOD_LCTL, KC_PPLS)
-#define ALT_F7 MT(MOD_LALT, KC_F7)
-#define ALT_6 MT(MOD_LALT, KC_6)
-#define CTL_F6 MT(MOD_LCTL, KC_F6)
-#define CTL_5 MT(MOD_LCTL, KC_5)
-#define SFT_F5 MT(MOD_LSFT, KC_F5)
-#define SFT_4 MT(MOD_RSFT, KC_4)
-// sym layer
-
 // Combos
 enum combos { JK_ESC, DF_TAB, LSEMI_ENTER, MS_MID };
 
@@ -250,8 +363,6 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
  * Base Layer: QWERTY
  *  TODO: change thumb alt into nav (right), so thumb bkspc is free. left thumb alt can be??
  *  TODO: right pinky bkspc and shift for - and =???
- *  Q: Trilayers?
- *  Q: undo/redo
  *
  * ,-------------------------------------------.                              ,-------------------------------------------.
  * |  Tab   |   Q  |   W  |   E  |   R  |   T  |                              |   Y  |   U  |   I  |   O  |   P  |  Bksp  |
@@ -267,8 +378,8 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
     [_QWERTY] = LAYOUT(
      KC_TAB  , KC_Q ,  KC_W   ,  KC_E  ,   KC_R ,   KC_T ,                                          KC_Y,    KC_U,     KC_I,   KC_O,    KC_P,  KC_BSPC,
      CTL_ESC , GUI_A,  ALT_S  ,  CTL_D ,   SFT_F,   KC_G ,                                          KC_H,   SFT_J,    CTL_K,  ALT_L,GUI_SEMI, CTL_QUOT,
-     KC_LSFT , KC_Z ,  KC_X   ,  KC_C  ,   KC_V ,   KC_B ,XXXXXXX, CW_TOGG,     KC_WBAK, KC_WFWD,   KC_N,    KC_M,  KC_COMM, KC_DOT, KC_SLSH,  KC_RSFT,
-                               MENU_ADJ, KC_LGUI, SPC_SYM,ALT_ENT,  KC_DEL,   BKSPC_NAV, ALT_ENT,SPC_NUM, KC_RGUI,  XXXXXXX
+     KC_LSFT , KC_Z ,  KC_X   ,  KC_C  ,   KC_V ,   KC_B , XXXXXXX, CW_TOGG,     U_WBAK,  U_WFWD,   KC_N,    KC_M,  KC_COMM, KC_DOT, KC_SLSH,  KC_RSFT,
+                               MENU_ADJ, KC_LGUI, SPC_SYM, ALT_ENT,  KC_DEL,   BKSPC_NAV, ALT_ENT,SPC_NUM, KC_RGUI,  XXXXXXX
     ),
 
 /*
@@ -307,11 +418,10 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
  *                        `----------------------------------'  `----------------------------------'
  */
 // TEST: needs testing and adjusting positions
-// FIXME: modtap for sym layer... note that if mod-tap mod is pressed before layer change, mod remains activated
     [_SYM] = LAYOUT(
-      _______, XXXXXXX, XXXXXXX, KC_TILD,  KC_GRV, KC_LPRN,                                     KC_RPRN, KC_PLUS, KC_ASTR, XXXXXXX, XXXXXXX, _______,
-      _______, KC_EXLM,   KC_AT, KC_CIRC, KC_PIPE, KC_LBRC,                                     KC_RBRC, KC_MINS,  KC_EQL, KC_UNDS, KC_DQUO,  KC_ENT,
-      _______, XXXXXXX,  KC_DLR, KC_AMPR, KC_BSLS, KC_LCBR, XXXXXXX, QK_LLCK, _______, _______, KC_RCBR, KC_SLSH, KC_PERC, KC_HASH, KC_QUES, _______,
+      _______, XXXXXXX,   U_EUR, KC_TILD,  KC_GRV, KC_LPRN,                                     KC_RPRN, KC_PLUS, KC_ASTR, XXXXXXX, XXXXXXX, _______,
+      _______,SYM_EXLM,  SYM_AT,SYM_CIRC, SYM_PIPE, KC_LBRC,                                     KC_RBRC, KC_MINS,  KC_EQL, KC_UNDS, KC_DQUO,  KC_ENT,
+      _______,   U_ESZ,  KC_DLR, KC_AMPR, KC_BSLS, KC_LCBR, XXXXXXX, QK_LLCK, _______, _______, KC_RCBR, KC_SLSH, KC_PERC, KC_HASH, KC_QUES, _______,
                                  _______, _______, _______, _______, _______, _______, _______, _______, _______, _______
     ),
 
@@ -340,11 +450,9 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 
 /*
  * Adjust Layer: Default layer settings, RGB
- *  TODO: trackpad tap = LMB or RMB
- *  TODO: MacOS toggle, for undo/redo, fwd/back,  etc
- *  HINT: CG_TOGG for swapping CTRL and GUI, AG_TOGG for ALT and GUI
+ *
  * ,-------------------------------------------.                              ,-------------------------------------------.
- * |        |      |      |      |      |      |                              |swap m|accel2|accel1|accel0|      |  boot  |
+ * |        |      |      |      |      |OStogg|                              |swap m|      |      |      |      |  boot  |
  * |--------+------+------+------+------+------|                              |------+------+------+------+------+--------|
  * |        |      |      |      | BLI  |      |                              | TOG  | SAI  | HUI  | VAI  | MOD  |        |
  * |--------+------+------+------+------+------+-------------.  ,-------------+------+------+------+------+------+--------|
@@ -355,7 +463,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
  *                        `----------------------------------'  `----------------------------------'
  */
     [_ADJUST] = LAYOUT(
-      XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX,                                 U_SWAP_BTN, MS_ACL2, MS_ACL1, MS_ACL0, XXXXXXX, QK_BOOT,
+      XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, U_OS_TOGG,                               U_SWAP_BTN, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, QK_BOOT,
       XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX,   BL_UP, XXXXXXX,                                    RM_TOGG, RM_SATU, RM_HUEU, RM_VALU, RM_NEXT, XXXXXXX,
       XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, BL_DOWN, XXXXXXX,XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, RM_SATD, RM_HUED, RM_VALD, RM_PREV, XXXXXXX,
                                  _______, _______, _______,_______, _______, _______, _______, _______, _______, _______
@@ -473,8 +581,3 @@ const uint16_t right_halcyon_buttons[10][5] = {
     [_AUTO_MOUSE] = { _______, _______, _______, _______, _______ }
 };
 #endif
-
-void keyboard_post_init_user(void) {
-    rgb_matrix_enable_noeeprom();
-    rgb_matrix_mode_noeeprom(RGB_MATRIX_CUSTOM_layer_colors);
-}

@@ -237,19 +237,19 @@ void update_display(void) {
     bool    cur_caps_word  = is_caps_word_on();
     bool    cur_macos_mode = hlc_macos_mode();
 
-    // bool mac_changed = (cur_macos_mode != last_macos_mode);
+    bool mac_changed = (cur_macos_mode != last_macos_mode);
 
     if (cur_layer != last_layer) {
         draw_layer_icon(cur_layer);
         last_layer = cur_layer;
     }
-    if (cur_mods != last_mods) {
-        // if (cur_mods != last_mods || mac_changed) {
+    // if (cur_mods != last_mods) {
+    if (cur_mods != last_mods || mac_changed) {
         draw_mods_row(cur_mods, cur_macos_mode);
         last_mods = cur_mods;
     }
-    if (cur_leds.raw != last_led_state.raw || cur_caps_word != last_caps_word) {
-        // if (cur_leds.raw != last_led_state.raw || cur_caps_word != last_caps_word || mac_changed) {
+    // if (cur_leds.raw != last_led_state.raw || cur_caps_word != last_caps_word) {
+    if (cur_leds.raw != last_led_state.raw || cur_caps_word != last_caps_word || mac_changed) {
         draw_locks_row(cur_leds, cur_caps_word, cur_macos_mode);
         last_led_state = cur_leds;
         last_caps_word = cur_caps_word;
@@ -289,7 +289,7 @@ bool module_post_init_kb(void) {
     layer_icons[1] = qp_load_image_mem(gfx_calculate);    //  󱖦 
     layer_icons[2] = qp_load_image_mem(gfx_data_object);  // 󰘦  
     layer_icons[3] = qp_load_image_mem(gfx_open_with);    // 4 arrows?  
-    layer_icons[4] = qp_load_image_mem(gfx_settings);     //   
+    layer_icons[4] = qp_load_image_mem(gfx_settings);     // 
     layer_icons[5] = qp_load_image_mem(gfx_mouse);        // 󰍽
     layer_icons[6] = qp_load_image_mem(gfx_functions);    // 󰊕 󰡱
     layer_icons[7] = qp_load_image_mem(gfx_window_tiles); // _WINDOW (was _MEDIA / music_note) // 󰐎

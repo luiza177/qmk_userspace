@@ -37,3 +37,5 @@
 #define AUTO_MOUSE_TIME 400        // ms before dropping back to typing
 // #define AUTO_MOUSE_THRESHOLD 10  // movement needed to activate (raise if triggered by accident)
 // // #define AUTO_MOUSE_DELAY 400     // ms after a keypress before the mouse layer can re-trigger
+
+#define SPLIT_TRANSACTION_IDS_USER USER_SYNC_IS_MAC

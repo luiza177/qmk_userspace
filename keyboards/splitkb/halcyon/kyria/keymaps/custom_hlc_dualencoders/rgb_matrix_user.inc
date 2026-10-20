@@ -112,7 +112,7 @@ static const uint8_t PROGMEM layer_map[][RGB_MATRIX_LED_COUNT] = {
     [0] = GRID(C_GBASE, C_GBASE,
         C_MOD,  C_KEY,  C_KEY,  C_KEY,  C_KEY,  C_KEY,                                  C_KEY,  C_KEY,  C_KEY,  C_KEY,  C_KEY,  C_MOD,
         C_MOD,  C_HOME, C_HOME, C_HOME, C_HOME, C_KEY,                                  C_KEY,  C_HOME, C_HOME, C_HOME, C_PUNH, C_PUN,
-        C_MOD,  C_KEY,  C_KEY,  C_KEY,  C_KEY,  C_KEY,  C_OFF,  C_MOD,  C_VDIM, C_VDIM, C_KEY,  C_KEY,  C_PUN,  C_PUN,  C_PUN,  C_MOD,
+        C_MOD,  C_KEY,  C_KEY,  C_KEY,  C_KEY,  C_KEY,  C_OFF,  C_MOD,  C_DIM,  C_DIM,  C_KEY,  C_KEY,  C_PUN,  C_PUN,  C_PUN,  C_MOD,
                                 C_TR,   C_TC,   C_TG,   C_TC,   C_TC,   C_TY,   C_TC,   C_TB,   C_TC,   C_OFF
     ),
 
@@ -126,9 +126,9 @@ static const uint8_t PROGMEM layer_map[][RGB_MATRIX_LED_COUNT] = {
 
     // ---- 2: sym ----
     [2] = GRID(C_GSYM, C_GSYM,
-        C_DIM,  C_OFF,  C_OFF,  C_COD,  C_COD,  C_BRK,                                  C_BRK,  C_MTH,  C_MTH,  C_OFF,  C_OFF,  C_DIM,
+        C_DIM,  C_OFF,  C_TXT,  C_COD,  C_COD,  C_BRK,                                  C_BRK,  C_MTH,  C_MTH,  C_OFF,  C_OFF,  C_DIM,
         C_DIM,  C_TXT,  C_TXT,  C_COD,  C_COD,  C_BRK,                                  C_BRK,  C_MTH,  C_MTH,  C_TXT,  C_TXT,  C_SYMT,
-        C_DIM,  C_OFF,  C_TXT,  C_COD,  C_COD,  C_BRK,  C_DIM,  C_TG,   C_VDIM, C_VDIM, C_BRK,  C_MTH,  C_MTH,  C_TXT,  C_TXT,  C_DIM,
+        C_DIM,  C_TXT,  C_TXT,  C_COD,  C_COD,  C_BRK,  C_DIM,  C_TG,   C_VDIM, C_VDIM, C_BRK,  C_MTH,  C_MTH,  C_TXT,  C_TXT,  C_DIM,
                                 C_TRD,  C_SYMT, C_TG,   C_SYMT, C_SYMT, C_TYD,  C_SYMT, C_TBD,  C_SYMT, C_OFF
     ),
 
@@ -142,7 +142,7 @@ static const uint8_t PROGMEM layer_map[][RGB_MATRIX_LED_COUNT] = {
 
     // ---- 4: adjust ----
     [4] = GRID(C_GADJ, C_GADJ,
-        C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_OFF,                                  C_ACC,  C_ACC,  C_ACC,  C_ACC,  C_OFF,  C_BOOT,
+        C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_TR,                                   C_ACC,  C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_BOOT,
         C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_BL,   C_OFF,                                  C_ADJ,  C_ADJ,  C_ADJ,  C_ADJ,  C_ADJ,  C_OFF,
         C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_BL,   C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_ADJ,  C_ADJ,  C_ADJ,  C_ADJ,  C_OFF,
                                 C_TR,   C_ADJT, C_TGD,  C_ADJT, C_ADJT, C_TYD,  C_ADJT, C_TBD,  C_ADJT, C_OFF
