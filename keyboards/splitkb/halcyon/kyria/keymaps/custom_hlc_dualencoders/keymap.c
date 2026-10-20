@@ -68,6 +68,9 @@ enum custom_keycodes {
 #define SYM_CIRC CTL_T(KC_6)
 #define SYM_PIPE SFT_T(KC_BSLS)
 
+#define SET_NOT_MAC (1 << 0)
+#define SET_SWAP (1 << 1)
+
 static bool    swap_btns    = false;
 static uint8_t swapped_held = 0; // button bits we are currently holding
 static bool    is_mac       = false;
@@ -77,9 +80,6 @@ static void is_mac_sync_handler(uint8_t in_len, const void *in_data, uint8_t out
         is_mac = *(const bool *)in_data;
     }
 }
-
-#define SET_NOT_MAC (1 << 0)
-#define SET_SWAP (1 << 1)
 
 static void settings_save(void) {
     eeconfig_update_user((is_mac ? 0 : SET_NOT_MAC) | (swap_btns ? SET_SWAP : 0));
@@ -92,6 +92,7 @@ static void set_mac(bool mac) {
     }
 }
 
+// ==============================================================
 #ifdef HLC_TFT_DISPLAY
 // Defined in users/halcyon_modules/splitkb/hlc_tft_display/hlc_tft_display.c
 void splitkb_logo_sparkle(void);
@@ -171,6 +172,9 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
 }
 
 report_mouse_t pointing_device_task_user(report_mouse_t r) {
+    if (swap_btns && (r.buttons & 0x01)) { // Q: how does this work?
+        r.buttons = (r.buttons & ~0x01) | 0x02;
+    }
     r.buttons |= swapped_held; // reapply every report
     return r;
 }
@@ -201,12 +205,10 @@ bool process_detected_host_os_user(os_variant_t detected_os) {
     switch (detected_os) {
         case OS_MACOS:
         case OS_IOS:
-            // is_mac = true;
             set_mac(true);
             break;
         case OS_WINDOWS:
         case OS_LINUX:
-            // is_mac = false;
             set_mac(false);
             break;
         default:
@@ -216,7 +218,6 @@ bool process_detected_host_os_user(os_variant_t detected_os) {
 }
 
 // ===================================================================
-// TODO: survive reset: OS / mouse btn swap
 // TODO: trackpad tap = LMB or RMB
 
 // DISPLAY
