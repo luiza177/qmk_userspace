@@ -1,5 +1,8 @@
 RGB_MATRIX_EFFECT(layer_colors)
 
+#define MOUSE_BTN_1 37
+#define MOUSE_BTN_2 42
+
 #ifdef RGB_MATRIX_CUSTOM_EFFECT_IMPLS
 
 // ---- palette names (grid cells use these) ----
@@ -14,6 +17,7 @@ enum {
     C_ARW, C_NAVK, C_NAVM, C_MED, C_NAVT,      // nav layer
     C_ADJ, C_ACC, C_BL, C_BOOT, C_ADJT,        // adjust layer
     C_GBASE, C_GNUM, C_GFUNC, C_GSYM, C_GNAV, C_GADJ,   // underglow
+    C_MS, // mouse buttons
     C_COUNT
 };
 
@@ -76,6 +80,8 @@ static const uint8_t PROGMEM palette[][3] = {
     [C_BOOT]  = { 74, 255, 255},   // QK_BOOT
     [C_ADJT]  = {250, 255, 180},   // idle thumbs
 
+    [C_MS]    = { 12, 200, 255},   // mouse buttons
+
     [C_GBASE] = {132,  64,  180},   // underglow
     [C_GNUM]  = {163, 255,  180},
     [C_GFUNC] = {223, 255,  180},
@@ -88,10 +94,10 @@ _Static_assert(ARRAY_SIZE(palette) == C_COUNT, "palette and enum are out of sync
 // ---- GRID: arguments follow your LAYOUT() order; names are LED numbers ----
 // gl/gr = left/right underglow
 #define GRID(gl, gr, \
-    k30,k29,k28,k27,k26,k25,                    k56,k57,k58,k59,k60,k61, \
-    k24,k23,k22,k21,k20,k19,                    k50,k51,k52,k53,k54,k55, \
+    k30,k29,k28,k27,k26,k25,                  k56,k57,k58,k59,k60,k61, \
+    k24,k23,k22,k21,k20,k19,                  k50,k51,k52,k53,k54,k55, \
     k18,k17,k16,k15,k14,k13,k12,k11,  k42,k43,k44,k45,k46,k47,k48,k49, \
-                k10,k9,k8,k7,k6,                k37,k38,k39,k40,k41) \
+                k10,k9, k8, k7, k6,   k37,k38,k39,k40,k41) \
 { \
     [0 ... 5] = gl, [31 ... 36] = gr, \
     [30]=k30, [29]=k29, [28]=k28, [27]=k27, [26]=k26, [25]=k25, \
@@ -100,7 +106,7 @@ _Static_assert(ARRAY_SIZE(palette) == C_COUNT, "palette and enum are out of sync
     [50]=k50, [51]=k51, [52]=k52, [53]=k53, [54]=k54, [55]=k55, \
     [18]=k18, [17]=k17, [16]=k16, [15]=k15, [14]=k14, [13]=k13, [12]=k12, [11]=k11, \
     [42]=k42, [43]=k43, [44]=k44, [45]=k45, [46]=k46, [47]=k47, [48]=k48, [49]=k49, \
-    [10]=k10, [9]=k9, [8]=k8, [7]=k7, [6]=k6, \
+    [10]=k10, [9]=k9,   [8]=k8,   [7]=k7,   [6]=k6, \
     [37]=k37, [38]=k38, [39]=k39, [40]=k40, [41]=k41 \
 }
 
@@ -119,8 +125,8 @@ static const uint8_t PROGMEM layer_map[][RGB_MATRIX_LED_COUNT] = {
     [1] = GRID(C_GFUNC, C_GNUM,
         C_DIM,  C_F9,   C_F10,  C_F11,  C_F12,  C_OFF,                                   C_OPR,  C_NUM,  C_NUM,  C_NUM,  C_OPR,  C_DIM,
         C_DIM,  C_F8,   C_F7,   C_F6,   C_F5,   C_OPR,                                   C_OPR,  C_NUM,  C_NUM,  C_NUM,  C_OPR,  C_OPR,
-        C_DIM,  C_F4,   C_F3,   C_F2,   C_F1,   C_OFF,  C_DIM,  C_TB,   C_VDIM,  C_VDIM, C_NUM,  C_NUM,  C_NUM,  C_NUM,  C_OPR,  C_DIM,
-                                C_TRD,  C_NUMT, C_TGD, C_NUMT,  C_NUMT, C_NUMT,   C_TYD, C_TB,   C_NUMT, C_OFF
+        C_DIM,  C_F4,   C_F3,   C_F2,   C_F1,   C_OFF, C_DIM,   C_TB,   C_VDIM,  C_VDIM, C_NUM,  C_NUM,  C_NUM,  C_NUM,  C_OPR,  C_DIM,
+                                C_TRD,  C_NUMT, C_TGD, C_NUMT,  C_NUMT, C_NUMT,  C_TYD,  C_TB,   C_NUMT, C_OFF
     ),
 
     // ---- 2: sym ----
@@ -128,7 +134,7 @@ static const uint8_t PROGMEM layer_map[][RGB_MATRIX_LED_COUNT] = {
         C_DIM,  C_OFF,  C_TXT,  C_TXT,  C_COD,  C_BRK,                                  C_BRK,  C_MTH,  C_MTH,  C_TXT,  C_TXT,  C_DIM,
         C_DIM,  C_TXTH, C_TXTH, C_TXTH, C_CODH, C_BRK,                                  C_BRK,  C_MTH,  C_MTH,  C_TXT,  C_TXT,  C_SYMT,
         C_DIM,  C_OFF,  C_OFF,  C_COD,  C_COD,  C_BRK,  C_DIM,  C_TG,   C_VDIM, C_VDIM, C_BRK,  C_MTH,  C_MTH,  C_COD,  C_TXT,  C_DIM,
-                                C_TRD,  C_SYMT, C_TG,   C_SYMT, C_SYMT, C_SYMT,  C_TYD, C_TBD,  C_SYMT, C_OFF
+                                C_TRD,  C_SYMT, C_TG,   C_SYMT, C_SYMT, C_SYMT, C_TYD,  C_TBD,  C_SYMT, C_OFF
     ),
 
     // ---- 3: nav ----
@@ -136,7 +142,7 @@ static const uint8_t PROGMEM layer_map[][RGB_MATRIX_LED_COUNT] = {
         C_DIM,  C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_OFF,                                  C_NAVK, C_NAVK, C_NAVK, C_NAVK, C_NAVK, C_DIM,
         C_DIM,  C_NAVM, C_NAVM, C_NAVM, C_NAVM, C_OFF,                                  C_ARW,  C_ARW,  C_ARW,  C_ARW,  C_OFF,  C_NAVT,
         C_DIM,  C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_MED,  C_TY,   C_VDIM, C_VDIM, C_MED,  C_MED,  C_MED,  C_OFF,  C_OFF,  C_DIM,
-                                C_TRD,  C_NAVT, C_TGD,  C_NAVT, C_NAVT, C_NAVT,   C_TY, C_TBD, C_NAVT, C_OFF
+                                C_TRD,  C_NAVT, C_TGD,  C_NAVT, C_NAVT, C_NAVT, C_TY,   C_TBD,  C_NAVT, C_OFF
     ),
 
     // ---- 4: adjust ----
@@ -144,19 +150,24 @@ static const uint8_t PROGMEM layer_map[][RGB_MATRIX_LED_COUNT] = {
         C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_TR,                                   C_ACC,  C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_BOOT,
         C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_BL,   C_OFF,                                  C_ADJ,  C_ADJ,  C_ADJ,  C_ADJ,  C_ADJ,  C_OFF,
         C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_BL,   C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_ADJ,  C_ADJ,  C_ADJ,  C_ADJ,  C_OFF,
-                                C_TR,   C_ADJT, C_TGD,  C_ADJT, C_ADJT, C_ADJT,  C_TYD, C_TBD,  C_ADJT, C_OFF
+                                C_TR,   C_ADJT, C_TGD,  C_ADJT, C_ADJT, C_ADJT, C_TYD,  C_TBD,  C_ADJT, C_OFF
     ),
 };
 
 static bool layer_colors(effect_params_t* params) {
     RGB_MATRIX_USE_LIMITS(led_min, led_max);
 
-    uint8_t layer = get_highest_layer(layer_state | default_layer_state);
+    bool mouse_on = layer_state_is(AUTO_MOUSE_DEFAULT_LAYER);
+    layer_state_t base_state = (layer_state & ~((layer_state_t)1 << AUTO_MOUSE_DEFAULT_LAYER))
+                             | default_layer_state;
+
+    uint8_t layer = get_highest_layer(base_state);
     if (layer >= ARRAY_SIZE(layer_map)) layer = 0;   // undefined layers use base
 
     uint8_t val = rgb_matrix_get_val();               // keeps brightness keys working
     for (uint8_t i = led_min; i < led_max; i++) {
         uint8_t c = pgm_read_byte(&layer_map[layer][i]);
+        if (mouse_on && (i == MOUSE_BTN_1 || i == MOUSE_BTN_2)) c = C_MS;
         HSV hsv = {
             pgm_read_byte(&palette[c][0]),
             pgm_read_byte(&palette[c][1]),
