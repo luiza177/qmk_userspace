@@ -8,7 +8,9 @@
 #include "quantum.h"
 #include "report.h"
 #include "rgb_matrix.h"
+#include "timer.h"
 #include "transactions.h"
+#include "ui_state.h"
 #include QMK_KEYBOARD_H
 
 enum layers {
@@ -76,10 +78,12 @@ enum custom_keycodes {
 static bool    swap_btns    = false;
 static uint8_t swapped_held = 0; // button bits we are currently holding
 static bool    is_mac       = false;
+ui_state_t     ui_state;
 
-static void is_mac_sync_handler(uint8_t in_len, const void *in_data, uint8_t out_len, void *out_data) {
-    if (in_len == sizeof(bool)) {
-        is_mac = *(const bool *)in_data;
+static void ui_state_sync_handler(uint8_t in_len, const void *in_data, uint8_t out_len, void *out_data) {
+    if (in_len == sizeof(ui_state_t)) {
+        memcpy(&ui_state, in_data, sizeof(ui_state_t));
+        is_mac = ui_state.is_mac;
     }
 }
 
@@ -129,7 +133,6 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
             }
             break;
         case U_OS_TOGG:
-            // if (record->event.pressed) is_mac = !is_mac;
             if (record->event.pressed) set_mac(!is_mac);
             return false;
         case U_WBAK:
@@ -189,7 +192,7 @@ report_mouse_t pointing_device_task_user(report_mouse_t r) {
 }
 
 void keyboard_post_init_user(void) {
-    transaction_register_rpc(USER_SYNC_IS_MAC, is_mac_sync_handler);
+    transaction_register_rpc(USER_SYNC_UI_STATE, ui_state_sync_handler);
     rgb_matrix_enable_noeeprom();
     rgb_matrix_mode_noeeprom(RGB_MATRIX_CUSTOM_layer_colors);
 
@@ -200,11 +203,20 @@ void keyboard_post_init_user(void) {
 
 void housekeeping_task_user(void) {
     if (!is_keyboard_master()) return;
-    static bool     last_sent = true;
-    static uint32_t last_sync = 0;
-    if (is_mac != last_sent || timer_elapsed32(last_sync) > 1000) {
-        if (transaction_rpc_send(USER_SYNC_IS_MAC, sizeof(is_mac), &is_mac)) {
-            last_sent = is_mac;
+    static ui_state_t last;
+    static uint32_t   last_sync = 0;
+
+    ui_state_t now = {
+        .is_mac    = is_mac,
+        .swap_btns = swap_btns,
+        .caps_word = is_caps_word_on(),
+        .locked    = is_layer_locked(get_highest_layer(layer_state)),
+    };
+    ui_state = now;
+
+    if (memcmp(&now, &last, sizeof now) != 0 || timer_elapsed32(last_sync) > 1000) {
+        if (transaction_rpc_send(USER_SYNC_UI_STATE, sizeof now, &now)) {
+            last      = now;
             last_sync = timer_read32();
         }
     }
@@ -231,21 +243,13 @@ bool process_detected_host_os_user(os_variant_t detected_os) {
 // TODO: display icon for Left vs right mouse buttons
 
 // LAYERS
-// TODO: gaming layer + LED map
-// TODO: guitar-pro layer + LED map
+// TODO: gaming layer + LED map + display icon
+// TODO: guitar-pro layer + LED map + display icon
 
 // LEDs
 // TODO: RGB effects
-// TODO: Auto-mouse layer LEDs
-// TODO: Adjust layer buttons reflect state
 
 /* HINT: QMK FEATURE CRASH COURSE: =========================================
- *
- * ---- SPECIAL KEYS --------------------------------------------------
- * _______ / KC_TRNS   Transparent: use the key from the layer below
- * XXXXXXX / KC_NO     Does nothing (blocks the key)
- * CW_TOGG             Caps Word: capitalizes one word, auto-ends
- *                     (needs CAPS_WORD_ENABLE = yes in rules.mk)
  *
  * ---- LAYER SWITCHING ------------------------------------------------
  * MO(n)               Momentary: layer n active while held
@@ -264,28 +268,6 @@ bool process_detected_host_os_user(os_variant_t detected_os) {
  *   layer_on(n)  layer_off(n)  layer_move(n)  layer_invert(n)
  *   get_highest_layer(layer_state)  -> current top layer
  *   layer_state_set_user(state)     -> runs on every layer change
- *
- * ---- MODIFIERS ------------------------------------------------------
- * KC_LSFT KC_LCTL KC_LALT KC_LGUI   Left Shift / Ctrl / Alt / Cmd(Win)
- * KC_RSFT KC_RCTL KC_RALT KC_RGUI   Right versions
- *
- * LSFT(kc) LCTL(kc) LALT(kc) LGUI(kc)  Send kc with that modifier
- *                     (also S(kc), C(kc), A(kc), G(kc)) // HINT: maybe this for homerow in sym layer?
- *
- * HYPR(kc)            Ctrl+Shift+Alt+Gui together with kc
- * MEH(kc)             Ctrl+Shift+Alt together with kc
- * OSM(MOD_LSFT)       One-shot modifier: applies to the next key only
- *                     (also MOD_LCTL, MOD_LALT, MOD_LGUI, MOD_RSFT...)
- *
- * ---- MOD-TAPS (tap = key, hold = modifier) -------------------------
- * MT(MOD_LSFT, KC_A)  General form: tap A, hold Shift
- * LSFT_T(kc) RSFT_T(kc)   Shift on hold
- * LCTL_T(kc) RCTL_T(kc)   Ctrl on hold
- * LALT_T(kc) RALT_T(kc)   Alt on hold
- * LGUI_T(kc) RGUI_T(kc)   Cmd/Win on hold
- * Home row mods = mod-taps on the home row keys (A S D F / J K L ;).
- * Misfires are tuned in config.h (TAPPING_TERM, CHORDAL_HOLD,
- * FLOW_TAP_TERM, QUICK_TAP_TERM, PERMISSIVE_HOLD).
  *
  * ---- TAP DANCE (different action per tap count) --------------------
  * Needs TAP_DANCE_ENABLE = yes in rules.mk.
@@ -323,15 +305,7 @@ bool process_detected_host_os_user(os_variant_t detected_os) {
  * MS_BTN1 MS_BTN2 MS_BTN3   Left / right / middle click
  * MS_WHLU MS_WHLD           Scroll up / down
  * MS_WHLL MS_WHLR           Scroll left / right
- * MS_UP MS_DOWN MS_LEFT MS_RGHT   Move cursor (needs MOUSEKEY_ENABLE)
- * MS_ACL0 MS_ACL1 MS_ACL2   Cursor speed presets
- * (older QMK names: KC_BTN1, KC_WH_U, KC_MS_U, KC_ACL0, ...)
  *
- * ---- HANDY CALLBACKS ---------------------------------------------------
- *   get_tapping_term(keycode, record)      Per-key tap-hold timing
- *                                          (needs TAPPING_TERM_PER_KEY)
- *   layer_state_set_user(state)             React to layer changes
- *   keyboard_post_init_user()               One-time startup code
  * =========================================================================*/
 
 // Combos
@@ -373,7 +347,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
  * ,-------------------------------------------.                              ,-------------------------------------------.
  * |  Tab   |   Q  |   W  |   E  |   R  |   T  |                              |   Y  |   U  |   I  |   O  |   P  |  Bksp  |
  * |--------+------+------+------+------+------|                              |------+------+------+------+------+--------|
- * |Ctrl/Esc|   A  |   S  |   D  |   F  |   G  | - _                      = + |   H  |   J  |   K  |   L  | ;  : | Ctrl/' | or Enter?
+ * |Ctrl/Esc|   A  |   S  |   D  |   F  |   G  |                              |   H  |   J  |   K  |   L  | ;  : | Ctrl/' | or Enter?
  * |--------+------+------+------+------+------+-------------.  ,-------------+------+------+------+------+------+--------|
  * | LShift |   Z  |   X  |   C  |   V  |   B  |      |CapsW?|  | back |  fwd |   N  |   M  | ,  < | . >  | /  ? | RShift |
  * `----------------------+------+------+------+------+------|  |------+------+------+------+------+----------------------'

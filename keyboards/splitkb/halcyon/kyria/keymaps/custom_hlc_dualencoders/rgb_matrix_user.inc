@@ -4,6 +4,7 @@ RGB_MATRIX_EFFECT(layer_colors)
 #define MOUSE_BTN_2 42
 
 #ifdef RGB_MATRIX_CUSTOM_EFFECT_IMPLS
+#include "ui_state.h"
 
 // ---- palette names (grid cells use these) ----
 enum {
@@ -18,6 +19,7 @@ enum {
     C_ADJ, C_ACC, C_BL, C_BOOT, C_ADJT,        // adjust layer
     C_GBASE, C_GNUM, C_GFUNC, C_GSYM, C_GNAV, C_GADJ,   // underglow
     C_MS, // mouse buttons
+    C_ST_ON, C_ST_CAPS, C_ST_MAC, C_ST_WIN, C_ST_SWAP, C_ST_SWAPPED, // stateful buttons
     C_COUNT
 };
 
@@ -81,6 +83,13 @@ static const uint8_t PROGMEM palette[][3] = {
     [C_ADJT]  = {250, 255, 180},   // idle thumbs
 
     [C_MS]    = { 12, 200, 255},   // mouse buttons
+
+    [C_ST_ON]   = {  0,   0, 255},   // layer locked
+    [C_ST_CAPS] = { 35, 255, 255},   // caps word on
+    [C_ST_MAC]  = {  0,   0, 255},   // OS toggle key: macOS
+    [C_ST_WIN]  = {160, 255, 255},   // OS toggle key: Windows/Linux
+    [C_ST_SWAP] = { 12, 200, 200},   // button swap normal
+    [C_ST_SWAPPED] = {  0, 255, 255},   // button swap active
 
     [C_GBASE] = {132,  64,  180},   // underglow
     [C_GNUM]  = {163, 255,  180},
@@ -147,13 +156,32 @@ static const uint8_t PROGMEM layer_map[][RGB_MATRIX_LED_COUNT] = {
 
     // ---- 4: adjust ----
     [4] = GRID(C_GADJ, C_GADJ,
-        C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_TR,                                   C_ACC,  C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_BOOT,
-        C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_BL,   C_OFF,                                  C_ADJ,  C_ADJ,  C_ADJ,  C_ADJ,  C_ADJ,  C_OFF,
-        C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_BL,   C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_ADJ,  C_ADJ,  C_ADJ,  C_ADJ,  C_OFF,
-                                C_TR,   C_ADJT, C_TGD,  C_ADJT, C_ADJT, C_ADJT, C_TYD,  C_TBD,  C_ADJT, C_OFF
+        C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_ST_WIN,                               C_ST_SWAP,C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_BOOT,
+        C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_BL,   C_OFF,                                  C_ADJ,    C_ADJ,  C_ADJ,  C_ADJ,  C_ADJ,  C_OFF,
+        C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_BL,   C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_OFF,    C_ADJ,  C_ADJ,  C_ADJ,  C_ADJ,  C_OFF,
+                                C_TR,   C_ADJT, C_TGD,  C_ADJT, C_ADJT, C_ADJT, C_TYD,  C_TBD,    C_ADJT, C_OFF
     ),
 };
 
+// ===========================================================================
+static uint8_t state_override(uint8_t i, uint8_t layer, uint8_t c) {
+    // Base layer, caps word is on
+    if (layer == 0 && i == 11) {
+        if (ui_state.locked) return C_ST_ON;
+    }
+    // Num, Sym or Nav layer are locked
+    if (layer == 1 || layer == 2 || layer == 3) {
+        if (i == 11 && ui_state.locked) return C_ST_ON;
+    }
+    // adjust layer: toggle keys show their state (use your actual LEDs)
+    if (layer == 4) {
+        if (i == 25 && ui_state.is_mac) return C_ST_MAC;
+        if (i == 56 && ui_state.swap_btns) return C_ST_SWAPPED;
+    }
+    return c;
+}
+
+// ===========================================================================
 static bool layer_colors(effect_params_t* params) {
     RGB_MATRIX_USE_LIMITS(led_min, led_max);
 
@@ -164,10 +192,11 @@ static bool layer_colors(effect_params_t* params) {
     uint8_t layer = get_highest_layer(base_state);
     if (layer >= ARRAY_SIZE(layer_map)) layer = 0;   // undefined layers use base
 
-    uint8_t val = rgb_matrix_get_val();               // keeps brightness keys working
+    uint8_t val = rgb_matrix_get_val();              // keeps brightness keys working
     for (uint8_t i = led_min; i < led_max; i++) {
         uint8_t c = pgm_read_byte(&layer_map[layer][i]);
         if (mouse_on && (i == MOUSE_BTN_1 || i == MOUSE_BTN_2)) c = C_MS;
+        c = state_override(i, layer, c);
         HSV hsv = {
             pgm_read_byte(&palette[c][0]),
             pgm_read_byte(&palette[c][1]),
