@@ -1,6 +1,7 @@
 #pragma once
 
 #define BOTH_SHIFTS_TURNS_ON_CAPS_WORD
+#define CAPS_WORD_IDLE_TIMEOUT 0
 
 // #undef TAPPING_TERM
 // #define TAPPING_TERM 200 // INFO: ms between tap/hold (170-250 ms usually)

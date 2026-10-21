@@ -5,6 +5,7 @@
 #include "keycodes.h"
 #include "modifiers.h"
 #include "pointing_device.h"
+#include "quantum.h"
 #include "report.h"
 #include "rgb_matrix.h"
 #include "transactions.h"
@@ -36,6 +37,7 @@ enum custom_keycodes {
 #define SPC_NUM LT(_NUM_FUNC, KC_SPC)
 #define SPC_SYM LT(_SYM, KC_SPC)
 #define BKSPC_NAV LT(_NAV, KC_BSPC)
+#define ENT_NAV LT(_NAV, KC_ENT)
 #define MENU_ADJ LT(_ADJUST, KC_APP)
 
 // Mod-tap macros
@@ -94,8 +96,6 @@ static void set_mac(bool mac) {
 
 // ==============================================================
 #ifdef HLC_TFT_DISPLAY
-// Defined in users/halcyon_modules/splitkb/hlc_tft_display/hlc_tft_display.c
-void splitkb_logo_sparkle(void);
 
 bool hlc_macos_mode(void) {
     return is_mac;
@@ -109,9 +109,6 @@ void pointing_device_init_user(void) {
 #endif
 
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
-#ifdef HLC_TFT_DISPLAY
-    splitkb_logo_sparkle();
-#endif
     switch (keycode) {
         case U_SWAP_BTN:
             if (record->event.pressed) {
@@ -167,6 +164,18 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
                 tap_code16(KC_PIPE);
                 return false;
             }
+        case KC_HOME:
+            if (is_mac) {
+                tap_code16(G(KC_LEFT));
+                return false;
+            }
+            break;
+        case KC_END:
+            if (is_mac) {
+                tap_code16(G(KC_RIGHT));
+                return false;
+            }
+            break;
     }
     return true;
 }
@@ -218,8 +227,6 @@ bool process_detected_host_os_user(os_variant_t detected_os) {
 }
 
 // ===================================================================
-// TODO: trackpad tap = LMB or RMB
-
 // DISPLAY
 // TODO: display icon for Left vs right mouse buttons
 
@@ -228,7 +235,6 @@ bool process_detected_host_os_user(os_variant_t detected_os) {
 // TODO: guitar-pro layer + LED map
 
 // LEDs
-// TODO: Homerow mods in SYM layer brighter LEDs
 // TODO: RGB effects
 // TODO: Auto-mouse layer LEDs
 // TODO: Adjust layer buttons reflect state
@@ -362,9 +368,8 @@ bool get_combo_must_tap(uint16_t index, combo_t *combo) {
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 /*
  * Base Layer: QWERTY
- *  TODO: change thumb alt into nav (right), so thumb bkspc is free. left thumb alt can be??
- *  TODO: right pinky bkspc and shift for - and =???
- *
+ *  Q: right pinky bkspc and shift for - and =???
+
  * ,-------------------------------------------.                              ,-------------------------------------------.
  * |  Tab   |   Q  |   W  |   E  |   R  |   T  |                              |   Y  |   U  |   I  |   O  |   P  |  Bksp  |
  * |--------+------+------+------+------+------|                              |------+------+------+------+------+--------|
@@ -372,15 +377,15 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
  * |--------+------+------+------+------+------+-------------.  ,-------------+------+------+------+------+------+--------|
  * | LShift |   Z  |   X  |   C  |   V  |   B  |      |CapsW?|  | back |  fwd |   N  |   M  | ,  < | . >  | /  ? | RShift |
  * `----------------------+------+------+------+------+------|  |------+------+------+------+------+----------------------'
- *                        | Adj/ | LGUI |Space/| LAlt/| Del  |  |Bkspc/| Alt/ |Space/| RGUI | ???  |
- *                        | Menu |      |  Sym | Bkspc|      |  | Nav  | Enter| Num  |      |      |
+ *                        | Adj/ | LGUI |Space/| Esc  | Del  |  |Bkspc | Nav/ |Space/| RGUI | ???  |
+ *                        | Menu |      |  Sym |      |      |  |      | Enter| Num  |      |      |
  *                        `----------------------------------'  `----------------------------------'
  */
     [_QWERTY] = LAYOUT(
-     KC_TAB  , KC_Q ,  KC_W   ,  KC_E  ,   KC_R ,   KC_T ,                                          KC_Y,    KC_U,     KC_I,   KC_O,    KC_P,  KC_BSPC,
-     CTL_ESC , GUI_A,  ALT_S  ,  CTL_D ,   SFT_F,   KC_G ,                                          KC_H,   SFT_J,    CTL_K,  ALT_L,GUI_SEMI, CTL_QUOT,
-     KC_LSFT , KC_Z ,  KC_X   ,  KC_C  ,   KC_V ,   KC_B , XXXXXXX, CW_TOGG,     U_WBAK,  U_WFWD,   KC_N,    KC_M,  KC_COMM, KC_DOT, KC_SLSH,  KC_RSFT,
-                               MENU_ADJ, KC_LGUI, SPC_SYM, ALT_ENT,  KC_DEL,   BKSPC_NAV, ALT_ENT,SPC_NUM, KC_RGUI,  XXXXXXX
+        KC_TAB  , KC_Q ,  KC_W   ,  KC_E  ,   KC_R ,   KC_T ,                                          KC_Y,    KC_U,     KC_I,   KC_O,    KC_P,  KC_BSPC,
+        CTL_ESC , GUI_A,  ALT_S  ,  CTL_D ,   SFT_F,   KC_G ,                                          KC_H,   SFT_J,    CTL_K,  ALT_L,GUI_SEMI, CTL_QUOT,
+        KC_LSFT , KC_Z ,  KC_X   ,  KC_C  ,   KC_V ,   KC_B , XXXXXXX, CW_TOGG,     U_WBAK,  U_WFWD,   KC_N,    KC_M,  KC_COMM, KC_DOT, KC_SLSH,  KC_RSFT,
+                                  MENU_ADJ, KC_LGUI, SPC_SYM,  KC_ESC,  KC_DEL,    KC_BSPC, ENT_NAV, SPC_NUM, KC_RGUI,  XXXXXXX
     ),
 
 /*
@@ -417,12 +422,23 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
  *                        |      |      |      |      |      |  |      |      |      |      |      |
  *                        |      |      |      |      |      |  |      |      |      |      |      |
  *                        `----------------------------------'  `----------------------------------'
+ *
+ * ,-------------------------------------------.                              ,-------------------------------------------.
+ * |        |      |  $   |   ~  |   `  |   (  |                              |   )  |   +  |   *  |  EUR |eszett|        |
+ * |--------+------+------+------+------+------|                              |------+------+------+------+------+--------|
+ * |        |   !  |  @   |   ^  |   |  |   [  |                              |   ]  |   -  |   =  |   _  |   "  |  enter |
+ * |--------+------+------+------+------+------+-------------.  ,-------------+------+------+------+------+------+--------|
+ * |        |      |      |   &  |   \  |   {  |      |LyrLck|  |      |      |   }  |   /  |   %  |   #  |   ?  |
+ * `----------------------+------+------+------+------+------|  |------+------+------+------+------+-------------+--------'
+ *                        |      |      |      |      |      |  |      |      |      |      |      |
+ *                        |      |      |      |      |      |  |      |      |      |      |      |
+ *                        `----------------------------------'  `----------------------------------'
  */
-// TEST: needs testing and adjusting positions
+
     [_SYM] = LAYOUT(
-      _______, XXXXXXX,   U_EUR, KC_TILD,  KC_GRV, KC_LPRN,                                     KC_RPRN, KC_PLUS, KC_ASTR, XXXXXXX, XXXXXXX, _______,
-      _______,SYM_EXLM,  SYM_AT,SYM_CIRC, SYM_PIPE, KC_LBRC,                                     KC_RBRC, KC_MINS,  KC_EQL, KC_UNDS, KC_DQUO,  KC_ENT,
-      _______,   U_ESZ,  KC_DLR, KC_AMPR, KC_BSLS, KC_LCBR, XXXXXXX, QK_LLCK, _______, _______, KC_RCBR, KC_SLSH, KC_PERC, KC_HASH, KC_QUES, _______,
+      _______, XXXXXXX,  KC_DLR, KC_TILD,  KC_GRV, KC_LPRN,                                     KC_RPRN, KC_PLUS, KC_ASTR,   U_EUR,   U_ESZ, _______,
+      _______,SYM_EXLM,  SYM_AT,SYM_CIRC,SYM_PIPE, KC_LBRC,                                     KC_RBRC, KC_MINS,  KC_EQL, KC_UNDS, KC_DQUO,  KC_ENT,
+      _______, XXXXXXX, XXXXXXX, KC_AMPR, KC_BSLS, KC_LCBR, XXXXXXX, QK_LLCK, _______, _______, KC_RCBR, KC_SLSH, KC_PERC, KC_HASH, KC_QUES, _______,
                                  _______, _______, _______, _______, _______, _______, _______, _______, _______, _______
     ),
 

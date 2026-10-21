@@ -10,7 +10,7 @@ enum {
     C_NUM, C_OPR, C_NUMT,                       // num layer
     C_F1, C_F2, C_F3, C_F4, C_F5, C_F6,
     C_F7, C_F8, C_F9, C_F10, C_F11, C_F12,     // func gradient
-    C_BRK, C_MTH, C_COD, C_TXT, C_SYMT,        // sym layer
+    C_BRK, C_MTH, C_COD, C_CODH, C_TXT, C_TXTH, C_SYMT,        // sym layer
     C_ARW, C_NAVK, C_NAVM, C_MED, C_NAVT,      // nav layer
     C_ADJ, C_ACC, C_BL, C_BOOT, C_ADJT,        // adjust layer
     C_GBASE, C_GNUM, C_GFUNC, C_GSYM, C_GNAV, C_GADJ,   // underglow
@@ -20,14 +20,14 @@ enum {
 // ---- palette values {hue, sat, val}: tune by eye ----
 static const uint8_t PROGMEM palette[][3] = {
     [C_OFF]   = {  0,   0,   0},
-    [C_DIM]   = {150,  26, 120},   // transparent keys
+    [C_DIM]   = {161,  70, 120},   // transparent keys
     [C_VDIM]  = {  0,   0,   8},   // back/forward
 
     [C_KEY]   = {131,  85, 200},   // base letters, warm neutral
     [C_HOME]  = {131,  47, 255},   // home-row mods
     [C_MOD]   = {161, 150, 150},   // outer mods, dim
-    [C_PUN]   = {131, 120, 200},   // , . / '
-    [C_PUNH]  = {131, 120, 255},   // ;   (bright + tint)
+    [C_PUN]   = { 93, 120, 200},   // , . / '
+    [C_PUNH]  = { 93,  80, 255},   // ;   (bright + tint)
 
     [C_TR]    = {252, 255, 255},   // adjust thumb
     [C_TRD]   = {252, 255, 200},   // adjust thumb dimmed
@@ -40,26 +40,28 @@ static const uint8_t PROGMEM palette[][3] = {
     [C_TC]    = {131, 250, 230},   // other thumbs on base
 
     [C_NUM]   = {164, 255, 255},   // digits
-    [C_OPR]   = {139, 239, 230},   // operators, enter, print screen
+    [C_OPR]   = {133, 239, 230},   // operators, enter, print screen
     [C_NUMT]  = {159, 255, 180},   // idle thumbs, lock
 
-    [C_F1]    = {185, 255, 255},   // purple -> pink ramp: hue only
-    [C_F2]    = {190, 255, 255},
-    [C_F3]    = {195, 255, 255},
-    [C_F4]    = {200, 255, 255},
-    [C_F5]    = {205, 255, 240},
+    [C_F1]    = {190, 255, 255},   // purple -> pink ramp: hue only
+    [C_F2]    = {194, 255, 255},
+    [C_F3]    = {198, 255, 255},
+    [C_F4]    = {202, 255, 255},
+    [C_F5]    = {206, 255, 240},
     [C_F6]    = {210, 255, 240},
-    [C_F7]    = {215, 255, 240},
-    [C_F8]    = {220, 255, 240},
-    [C_F9]    = {225, 255, 240},
-    [C_F10]   = {230, 255, 240},
-    [C_F11]   = {235, 255, 240},
-    [C_F12]   = {240, 255, 240},
+    [C_F7]    = {214, 255, 240},
+    [C_F8]    = {218, 255, 240},
+    [C_F9]    = {222, 255, 200},
+    [C_F10]   = {226, 255, 230},
+    [C_F11]   = {230, 255, 230},
+    [C_F12]   = {234, 255, 230},
 
     [C_BRK]   = { 96, 220, 230},   // ( ) [ ] { }   teal
     [C_MTH]   = { 70, 255, 215},   // + - * / = %   lime
-    [C_COD]   = { 93, 255, 220},   // | & ^ ~ \ `   emerald
-    [C_TXT]   = { 80, 255, 216},   // ! @ $ # _ " ? mint
+    [C_COD]   = { 88, 255, 220},   // | & \ ` #  emerald
+    [C_CODH]  = { 88, 250, 245},   // | & \ ` #  emerald - homerow
+    [C_TXT]   = { 80, 255, 216},   // ! @ $ ^ _ " ? mint
+    [C_TXTH]  = { 80, 250, 255},   // ! @ $ ^ _ " ? mint - homerow
     [C_SYMT]  = { 80, 255, 200},   // idle thumbs, lock, enter
 
     [C_ARW]   = { 30, 100, 255},   // arrows
@@ -82,9 +84,6 @@ static const uint8_t PROGMEM palette[][3] = {
     [C_GADJ]  = {248, 255,  180},
 };
 _Static_assert(ARRAY_SIZE(palette) == C_COUNT, "palette and enum are out of sync");
-
-// TODO: layer thumbs retain color
-// TODO: fix odd keys (eg. layer lock, prtscn, etc) to match layer's hue
 
 // ---- GRID: arguments follow your LAYOUT() order; names are LED numbers ----
 // gl/gr = left/right underglow
@@ -113,7 +112,7 @@ static const uint8_t PROGMEM layer_map[][RGB_MATRIX_LED_COUNT] = {
         C_MOD,  C_KEY,  C_KEY,  C_KEY,  C_KEY,  C_KEY,                                  C_KEY,  C_KEY,  C_KEY,  C_KEY,  C_KEY,  C_MOD,
         C_MOD,  C_HOME, C_HOME, C_HOME, C_HOME, C_KEY,                                  C_KEY,  C_HOME, C_HOME, C_HOME, C_PUNH, C_PUN,
         C_MOD,  C_KEY,  C_KEY,  C_KEY,  C_KEY,  C_KEY,  C_OFF,  C_MOD,  C_DIM,  C_DIM,  C_KEY,  C_KEY,  C_PUN,  C_PUN,  C_PUN,  C_MOD,
-                                C_TR,   C_TC,   C_TG,   C_TC,   C_TC,   C_TY,   C_TC,   C_TB,   C_TC,   C_OFF
+                                C_TR,   C_TC,   C_TG,   C_TC,   C_TC,   C_TC,   C_TY,   C_TB,   C_TC,   C_OFF
     ),
 
     // ---- 1: num / func ----
@@ -121,15 +120,15 @@ static const uint8_t PROGMEM layer_map[][RGB_MATRIX_LED_COUNT] = {
         C_DIM,  C_F9,   C_F10,  C_F11,  C_F12,  C_OFF,                                   C_OPR,  C_NUM,  C_NUM,  C_NUM,  C_OPR,  C_DIM,
         C_DIM,  C_F8,   C_F7,   C_F6,   C_F5,   C_OPR,                                   C_OPR,  C_NUM,  C_NUM,  C_NUM,  C_OPR,  C_OPR,
         C_DIM,  C_F4,   C_F3,   C_F2,   C_F1,   C_OFF,  C_DIM,  C_TB,   C_VDIM,  C_VDIM, C_NUM,  C_NUM,  C_NUM,  C_NUM,  C_OPR,  C_DIM,
-                                C_TRD,  C_NUMT, C_TGD, C_NUMT,  C_NUMT, C_TYD,   C_NUMT, C_TB,   C_NUMT, C_OFF
+                                C_TRD,  C_NUMT, C_TGD, C_NUMT,  C_NUMT, C_NUMT,   C_TYD, C_TB,   C_NUMT, C_OFF
     ),
 
     // ---- 2: sym ----
     [2] = GRID(C_GSYM, C_GSYM,
-        C_DIM,  C_OFF,  C_TXT,  C_COD,  C_COD,  C_BRK,                                  C_BRK,  C_MTH,  C_MTH,  C_OFF,  C_OFF,  C_DIM,
-        C_DIM,  C_TXT,  C_TXT,  C_COD,  C_COD,  C_BRK,                                  C_BRK,  C_MTH,  C_MTH,  C_TXT,  C_TXT,  C_SYMT,
-        C_DIM,  C_TXT,  C_TXT,  C_COD,  C_COD,  C_BRK,  C_DIM,  C_TG,   C_VDIM, C_VDIM, C_BRK,  C_MTH,  C_MTH,  C_TXT,  C_TXT,  C_DIM,
-                                C_TRD,  C_SYMT, C_TG,   C_SYMT, C_SYMT, C_TYD,  C_SYMT, C_TBD,  C_SYMT, C_OFF
+        C_DIM,  C_OFF,  C_TXT,  C_TXT,  C_COD,  C_BRK,                                  C_BRK,  C_MTH,  C_MTH,  C_TXT,  C_TXT,  C_DIM,
+        C_DIM,  C_TXTH, C_TXTH, C_TXTH, C_CODH, C_BRK,                                  C_BRK,  C_MTH,  C_MTH,  C_TXT,  C_TXT,  C_SYMT,
+        C_DIM,  C_OFF,  C_OFF,  C_COD,  C_COD,  C_BRK,  C_DIM,  C_TG,   C_VDIM, C_VDIM, C_BRK,  C_MTH,  C_MTH,  C_COD,  C_TXT,  C_DIM,
+                                C_TRD,  C_SYMT, C_TG,   C_SYMT, C_SYMT, C_SYMT,  C_TYD, C_TBD,  C_SYMT, C_OFF
     ),
 
     // ---- 3: nav ----
@@ -137,7 +136,7 @@ static const uint8_t PROGMEM layer_map[][RGB_MATRIX_LED_COUNT] = {
         C_DIM,  C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_OFF,                                  C_NAVK, C_NAVK, C_NAVK, C_NAVK, C_NAVK, C_DIM,
         C_DIM,  C_NAVM, C_NAVM, C_NAVM, C_NAVM, C_OFF,                                  C_ARW,  C_ARW,  C_ARW,  C_ARW,  C_OFF,  C_NAVT,
         C_DIM,  C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_MED,  C_TY,   C_VDIM, C_VDIM, C_MED,  C_MED,  C_MED,  C_OFF,  C_OFF,  C_DIM,
-                                C_TRD,  C_NAVT, C_TGD,  C_NAVT, C_NAVT, C_TY,   C_NAVT, C_TBD, C_NAVT, C_OFF
+                                C_TRD,  C_NAVT, C_TGD,  C_NAVT, C_NAVT, C_NAVT,   C_TY, C_TBD, C_NAVT, C_OFF
     ),
 
     // ---- 4: adjust ----
@@ -145,7 +144,7 @@ static const uint8_t PROGMEM layer_map[][RGB_MATRIX_LED_COUNT] = {
         C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_TR,                                   C_ACC,  C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_BOOT,
         C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_BL,   C_OFF,                                  C_ADJ,  C_ADJ,  C_ADJ,  C_ADJ,  C_ADJ,  C_OFF,
         C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_BL,   C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_ADJ,  C_ADJ,  C_ADJ,  C_ADJ,  C_OFF,
-                                C_TR,   C_ADJT, C_TGD,  C_ADJT, C_ADJT, C_TYD,  C_ADJT, C_TBD,  C_ADJT, C_OFF
+                                C_TR,   C_ADJT, C_TGD,  C_ADJT, C_ADJT, C_ADJT,  C_TYD, C_TBD,  C_ADJT, C_OFF
     ),
 };
 

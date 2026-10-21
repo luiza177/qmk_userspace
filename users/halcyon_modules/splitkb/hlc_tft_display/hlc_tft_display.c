@@ -146,19 +146,14 @@ static void draw_mods_row(uint8_t mods, bool macos_mode) {
         MOD_MASK_CTRL,
         MOD_MASK_SHIFT,
     };
-    // const uint8_t masks[4] = {
-    //     macos_mode ? MOD_MASK_CTRL : MOD_MASK_GUI,
-    //     MOD_MASK_ALT,
-    //     macos_mode ? MOD_MASK_GUI : MOD_MASK_CTRL,
-    //     MOD_MASK_SHIFT,
-    // };
 
     // Icons show what each finger does on the host.
     // Mac mode  : A=Ctrl,   S=Alt, D=Cmd(⌘), F=Shift -> ⌃ ⌥ ⌘ ⇧
     // Non-mac   : A=GUI(◆), S=Alt, D=Ctrl,    F=Shift -> ◆ ⌥ ⌃ ⇧
     painter_image_handle_t icons[4] = {
         // macos_mode ? mod_icons[0] /*Ctrl*/ : diamond_mod_icon /*◆*/,
-        diamond_mod_icon /* ◆ = GUI */,
+        // diamond_mod_icon /* ◆ = GUI */,
+        macos_mode ? mod_icons[2] : diamond_mod_icon,
         mod_icons[1] /*Alt*/,
         // macos_mode ? mod_icons[2] /*Cmd*/ : mod_icons[0] /*Ctrl*/,
         mod_icons[0] /*Ctrl*/,
