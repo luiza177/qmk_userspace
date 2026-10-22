@@ -201,7 +201,7 @@ static uint8_t idle_scale(void) {
 #define GROUP(name, ...) static const uint8_t name[] = { __VA_ARGS__ }
 
 GROUP(LEDS_GLOW,  0, 1, 2, 3, 4, 5, 31, 32, 33, 34, 35, 36);
-GROUP(LEDS_THUMB_MODS, 11, 6, 7, 9, 18, 24, 30, 61, 49, 40, 43, 42, 37);
+GROUP(LEDS_THUMB_MODS, 6, 7, 9, 18, 24, 30, 61, 49, 40, 43, 42, 37);
 GROUP(LEDS_WASD,  22, 21, 20, 15);
 
 enum { FX_CYCLE, FX_SWEEP }; // cycle: one color for the group; sweep: colors travel along it
@@ -214,19 +214,23 @@ typedef struct {
 } fx_rule_t;
 
 #define LAYERS(n) (1u << (n))
+#define ALL_LAYERS 0xFF
 #define RULE(g, layers, mode) { g, ARRAY_SIZE(g), (layers), (mode) }
 
 static const fx_rule_t fx_rules[] = {
     RULE(LEDS_GLOW, LAYERS(0), FX_CYCLE),
-    RULE(LEDS_THUMB_MODS, LAYERS(0), FX_SWEEP),
+    RULE(LEDS_THUMB_MODS, ALL_LAYERS, FX_SWEEP),
     // RULE(LEDS_WASD, LAYERS(5), FX_SWEEP),
 };
 
-static const fx_rule_t *fx_find(uint8_t i, uint8_t layer) {
+static const fx_rule_t *fx_find(uint8_t i, uint8_t layer/* , uint8_t *idx */) {
     for (uint8_t r = 0; r < ARRAY_SIZE(fx_rules); r++) {
         if (!(fx_rules[r].layers & LAYERS(layer))) continue;
         for (uint8_t k = 0; k < fx_rules[r].count; k++) {
-            if (fx_rules[r].leds[k] == i) return &fx_rules[r];
+            if (fx_rules[r].leds[k] == i) {
+                // *idx = k;
+                return &fx_rules[r];
+            }
         }
     }
     return NULL; // first matching rule wins
@@ -234,7 +238,7 @@ static const fx_rule_t *fx_find(uint8_t i, uint8_t layer) {
 
 static HSV apply_fx(uint8_t i, uint8_t layer, HSV hsv) {
     uint8_t spd = rgb_matrix_config.speed;
-    uint8_t tb  = scale16by8(g_rgb_timer, spd / 4);  // breathing clock
+    uint8_t tb  = scale16by8(g_rgb_timer, spd / 2);  // breathing clock, NOTE: originally /4 with static color
     uint8_t ts  = scale16by8(g_rgb_timer, spd / 8);  // sweep clock
     uint8_t tc  = scale16by8(g_rgb_timer, spd / 32); // cycle clock
 
@@ -249,7 +253,7 @@ static HSV apply_fx(uint8_t i, uint8_t layer, HSV hsv) {
 
     // caps word / layer lock LED
     if (layer == 0 && i == 11 && ui_state.caps_word) {
-        hsv.v = scale8(hsv.v, 110 + scale8(sin8(tb),  145));
+        hsv.v = scale8(hsv.v, 64 + scale8(sin8(tb), 191));
     }
 
     return hsv;
