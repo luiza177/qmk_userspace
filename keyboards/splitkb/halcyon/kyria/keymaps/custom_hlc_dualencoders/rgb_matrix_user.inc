@@ -198,29 +198,51 @@ static uint8_t idle_scale(void) {
 #define RAINBOW_SPREAD  1      // Q: delete?? hue change across the board; higher = more colors at once
 #define RAINBOW_MIN_V   140    // rainbow LEDs are never dimmer than this
 
-static bool fx_rainbow(uint8_t i, uint8_t layer) {
-    // underglow, base layer only
-    if (layer == 0 && HAS_FLAGS(g_led_config.flags[i], LED_FLAG_UNDERGLOW)) return true;
+#define GROUP(name, ...) static const uint8_t name[] = { __VA_ARGS__ }
 
-    // thumb clusters, base layer only (uncomment to use them too, or instead)
-    // if (layer == 0 && ((i >= 6 && i <= 10) || (i >= 37 && i <= 41))) return true;
+GROUP(LEDS_GLOW,  0, 1, 2, 3, 4, 5, 31, 32, 33, 34, 35, 36);
+GROUP(LEDS_THUMB_MODS, 11, 6, 7, 9, 18, 24, 30, 61, 49, 40, 43, 42, 37);
+GROUP(LEDS_WASD,  22, 21, 20, 15);
 
-    // WASD on a gaming layer: W=28, A=23, S=22, D=21 (set LAYER_GAMING when it exists)
-    // if (layer == LAYER_GAMING && (i == 28 || i == 23 || i == 22 || i == 21)) return true;
+enum { FX_CYCLE, FX_SWEEP }; // cycle: one color for the group; sweep: colors travel along it
 
-    return false;
+typedef struct {
+    const uint8_t *leds;
+    uint8_t        count;
+    uint16_t       layers; // bitmask of layers the rule applies to
+    uint8_t        mode;
+} fx_rule_t;
+
+#define LAYERS(n) (1u << (n))
+#define RULE(g, layers, mode) { g, ARRAY_SIZE(g), (layers), (mode) }
+
+static const fx_rule_t fx_rules[] = {
+    RULE(LEDS_GLOW, LAYERS(0), FX_CYCLE),
+    RULE(LEDS_THUMB_MODS, LAYERS(0), FX_SWEEP),
+    // RULE(LEDS_WASD, LAYERS(5), FX_SWEEP),
+};
+
+static const fx_rule_t *fx_find(uint8_t i, uint8_t layer) {
+    for (uint8_t r = 0; r < ARRAY_SIZE(fx_rules); r++) {
+        if (!(fx_rules[r].layers & LAYERS(layer))) continue;
+        for (uint8_t k = 0; k < fx_rules[r].count; k++) {
+            if (fx_rules[r].leds[k] == i) return &fx_rules[r];
+        }
+    }
+    return NULL; // first matching rule wins
 }
 
 static HSV apply_fx(uint8_t i, uint8_t layer, HSV hsv) {
-    // uint8_t t = scale16by8(g_rgb_timer, rgb_matrix_config.speed / 8);
     uint8_t spd = rgb_matrix_config.speed;
     uint8_t tb  = scale16by8(g_rgb_timer, spd / 4);  // breathing clock
-    uint8_t ts  = scale16by8(g_rgb_timer, spd / 8);      // sweep clock
-    // uint8_t tc  = scale16by8(g_rgb_timer, spd / 32); // cycle clock
+    uint8_t ts  = scale16by8(g_rgb_timer, spd / 8);  // sweep clock
+    uint8_t tc  = scale16by8(g_rgb_timer, spd / 32); // cycle clock
 
-    // rainbow sweep: hue follows the LED's x position and drifts with time
-    if (fx_rainbow(i, layer)) {
-        hsv.h = (uint8_t)(g_led_config.point[i].x * RAINBOW_SPREAD) - ts;
+    const fx_rule_t *rule = fx_find(i, layer);
+    if (rule) {
+        uint8_t offset = (rule->mode == FX_SWEEP) ? (uint8_t)(g_led_config.point[i].x) : 0;
+        uint8_t clock = (rule->mode == FX_SWEEP) ? ts : tc;
+        hsv.h = offset - clock;
         hsv.s = 255;
         hsv.v = MAX(hsv.v, RAINBOW_MIN_V);
     }

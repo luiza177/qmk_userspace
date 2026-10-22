@@ -247,7 +247,7 @@ bool process_detected_host_os_user(os_variant_t detected_os) {
 // TODO: guitar-pro layer + LED map + display icon
 
 // LEDs
-// TODO: RGB effects: rainbow sweep, reactive bright
+// TODO: RGB effects: reactive bright
 
 /* HINT: QMK FEATURE CRASH COURSE: =========================================
  *
