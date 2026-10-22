@@ -164,6 +164,10 @@ static const uint8_t PROGMEM layer_map[][RGB_MATRIX_LED_COUNT] = {
 };
 
 // ===========================================================================
+#define IDLE_FADE_START_MS   60000   // start fading after 30s without input
+#define IDLE_FADE_LENGTH_MS  3000    // fade takes 5 s
+#define IDLE_FADE_FLOOR      51      // end brightness, 0-255 (51 = 20%, 0 = fully off)
+
 static uint8_t state_override(uint8_t i, uint8_t layer, uint8_t c) {
     // Base layer, caps word is on
     if (layer == 0 && i == 11) {
@@ -181,6 +185,54 @@ static uint8_t state_override(uint8_t i, uint8_t layer, uint8_t c) {
     return c;
 }
 
+static uint8_t idle_scale(void) {
+    uint32_t idle = last_input_activity_elapsed();
+    if (idle <= IDLE_FADE_START_MS) return 255;
+
+    uint32_t f = idle - IDLE_FADE_START_MS;
+    if (f >= IDLE_FADE_LENGTH_MS) return IDLE_FADE_FLOOR;
+
+    return 255 - (uint8_t)((255 - IDLE_FADE_FLOOR) * f / IDLE_FADE_LENGTH_MS);
+}
+
+#define RAINBOW_SPREAD  1      // Q: delete?? hue change across the board; higher = more colors at once
+#define RAINBOW_MIN_V   140    // rainbow LEDs are never dimmer than this
+
+static bool fx_rainbow(uint8_t i, uint8_t layer) {
+    // underglow, base layer only
+    if (layer == 0 && HAS_FLAGS(g_led_config.flags[i], LED_FLAG_UNDERGLOW)) return true;
+
+    // thumb clusters, base layer only (uncomment to use them too, or instead)
+    // if (layer == 0 && ((i >= 6 && i <= 10) || (i >= 37 && i <= 41))) return true;
+
+    // WASD on a gaming layer: W=28, A=23, S=22, D=21 (set LAYER_GAMING when it exists)
+    // if (layer == LAYER_GAMING && (i == 28 || i == 23 || i == 22 || i == 21)) return true;
+
+    return false;
+}
+
+static HSV apply_fx(uint8_t i, uint8_t layer, HSV hsv) {
+    // uint8_t t = scale16by8(g_rgb_timer, rgb_matrix_config.speed / 8);
+    uint8_t spd = rgb_matrix_config.speed;
+    uint8_t tb  = scale16by8(g_rgb_timer, spd / 4);  // breathing clock
+    uint8_t ts  = scale16by8(g_rgb_timer, spd / 8);      // sweep clock
+    // uint8_t tc  = scale16by8(g_rgb_timer, spd / 32); // cycle clock
+
+    // rainbow sweep: hue follows the LED's x position and drifts with time
+    if (fx_rainbow(i, layer)) {
+        hsv.h = (uint8_t)(g_led_config.point[i].x * RAINBOW_SPREAD) - ts;
+        hsv.s = 255;
+        hsv.v = MAX(hsv.v, RAINBOW_MIN_V);
+    }
+
+    // caps word / layer lock LED
+    if (layer == 0 && i == 11 && ui_state.caps_word) {
+        hsv.v = scale8(hsv.v, 110 + scale8(sin8(tb),  145));
+    }
+
+    return hsv;
+}
+
 // ===========================================================================
 static bool layer_colors(effect_params_t* params) {
     RGB_MATRIX_USE_LIMITS(led_min, led_max);
@@ -192,7 +244,7 @@ static bool layer_colors(effect_params_t* params) {
     uint8_t layer = get_highest_layer(base_state);
     if (layer >= ARRAY_SIZE(layer_map)) layer = 0;   // undefined layers use base
 
-    uint8_t val = rgb_matrix_get_val();              // keeps brightness keys working
+    uint8_t val = rgb_matrix_get_val() * idle_scale() / 255; // keeps brightness keys working
     for (uint8_t i = led_min; i < led_max; i++) {
         uint8_t c = pgm_read_byte(&layer_map[layer][i]);
         if (mouse_on && (i == MOUSE_BTN_1 || i == MOUSE_BTN_2)) c = C_MS;
@@ -200,8 +252,10 @@ static bool layer_colors(effect_params_t* params) {
         HSV hsv = {
             pgm_read_byte(&palette[c][0]),
             pgm_read_byte(&palette[c][1]),
-            (uint16_t)pgm_read_byte(&palette[c][2]) * val / 255,
+            pgm_read_byte(&palette[c][2])
         };
+        hsv = apply_fx(i, layer, hsv);
+        hsv.v = (uint16_t)hsv.v * val / 255;
         RGB rgb = hsv_to_rgb(hsv);
         rgb_matrix_set_color(i, rgb.r, rgb.g, rgb.b);
     }

@@ -40,3 +40,4 @@
 // // #define AUTO_MOUSE_DELAY 400     // ms after a keypress before the mouse layer can re-trigger
 
 #define SPLIT_TRANSACTION_IDS_USER USER_SYNC_UI_STATE
+#define SPLIT_ACTIVITY_ENABLE
