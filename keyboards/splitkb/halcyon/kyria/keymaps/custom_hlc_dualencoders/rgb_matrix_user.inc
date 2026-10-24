@@ -19,7 +19,7 @@ enum {
     C_ADJ, C_ACC, C_BL, C_BOOT, C_ADJT,        // adjust layer
     C_GBASE, C_GNUM, C_GFUNC, C_GSYM, C_GNAV, C_GADJ,   // underglow
     C_MS, // mouse buttons
-    C_ST_ON, C_ST_CAPS, C_ST_MAC, C_ST_WIN, C_ST_SWAP, C_ST_SWAPPED, // stateful buttons
+    C_ST_ON, C_ST_CAPS, C_ST_MAC, C_ST_WIN, C_ST_SWAP, C_ST_SWAPPED, C_ST_RGB_FX, // stateful buttons
     C_COUNT
 };
 
@@ -90,6 +90,7 @@ static const uint8_t PROGMEM palette[][3] = {
     [C_ST_WIN]  = {160, 255, 255},   // OS toggle key: Windows/Linux
     [C_ST_SWAP] = { 12, 200, 200},   // button swap normal
     [C_ST_SWAPPED] = {  0, 255, 255},   // button swap active
+    [C_ST_RGB_FX] = { 90, 255, 255},  // rgb fx toggle
 
     [C_GBASE] = {132,  64,  180},   // underglow
     [C_GNUM]  = {163, 255,  180},
@@ -158,13 +159,13 @@ static const uint8_t PROGMEM layer_map[][RGB_MATRIX_LED_COUNT] = {
     [4] = GRID(C_GADJ, C_GADJ,
         C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_ST_WIN,                               C_ST_SWAP,C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_BOOT,
         C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_BL,   C_OFF,                                  C_ADJ,    C_ADJ,  C_ADJ,  C_ADJ,  C_ADJ,  C_OFF,
-        C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_BL,   C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_OFF,    C_ADJ,  C_ADJ,  C_ADJ,  C_ADJ,  C_OFF,
+        C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_BL,   C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_DIM,    C_ADJ,  C_ADJ,  C_ADJ,  C_ADJ,  C_OFF,
                                 C_TR,   C_ADJT, C_TGD,  C_ADJT, C_ADJT, C_ADJT, C_TYD,  C_TBD,    C_ADJT, C_OFF
     ),
 };
 
 // ===========================================================================
-#define IDLE_FADE_START_MS   60000   // start fading after 30s without input
+#define IDLE_FADE_START_MS   120000   // start fading after 2 minutes without input
 #define IDLE_FADE_LENGTH_MS  3000    // fade takes 5 s
 #define IDLE_FADE_FLOOR      51      // end brightness, 0-255 (51 = 20%, 0 = fully off)
 
@@ -181,6 +182,7 @@ static uint8_t state_override(uint8_t i, uint8_t layer, uint8_t c) {
     if (layer == 4) {
         if (i == 25 && ui_state.is_mac) return C_ST_MAC;
         if (i == 56 && ui_state.swap_btns) return C_ST_SWAPPED;
+        if (i == 44 && ui_state.rgb_fx_on) return C_ST_RGB_FX;
     }
     return c;
 }
@@ -195,7 +197,7 @@ static uint8_t idle_scale(void) {
     return 255 - (uint8_t)((255 - IDLE_FADE_FLOOR) * f / IDLE_FADE_LENGTH_MS);
 }
 
-#define RAINBOW_SPREAD  1      // Q: delete?? hue change across the board; higher = more colors at once
+#define RAINBOW_SPAN    255    // 0-255, where 255 is full spectrum
 #define RAINBOW_MIN_V   140    // rainbow LEDs are never dimmer than this
 
 #define GROUP(name, ...) static const uint8_t name[] = { __VA_ARGS__ }
@@ -211,24 +213,31 @@ typedef struct {
     uint8_t        count;
     uint16_t       layers; // bitmask of layers the rule applies to
     uint8_t        mode;
+    uint8_t        hue_lo, hue_hi; // only used in RANGED modes
+    uint8_t        speed_divider;
 } fx_rule_t;
 
 #define LAYERS(n) (1u << (n))
-#define ALL_LAYERS 0xFF
-#define RULE(g, layers, mode) { g, ARRAY_SIZE(g), (layers), (mode) }
+#define ALL_LAYERS (LAYERS(0) | LAYERS(1) | LAYERS(2) | LAYERS(3)) // all but settings layers
+#define RULE(g, layers, mode, speed_divider) { g, ARRAY_SIZE(g), (layers), (mode), 0, 0, (speed_divider) }
+#define RANGED_RULE(g, layers, mode, hue_lo, hue_hi, speed_divider) { g, ARRAY_SIZE(g), (layers), (mode), (hue_lo), (hue_hi), (speed_divider) }
 
 static const fx_rule_t fx_rules[] = {
-    RULE(LEDS_GLOW, LAYERS(0), FX_CYCLE),
-    RULE(LEDS_THUMB_MODS, ALL_LAYERS, FX_SWEEP),
+    // RULE(LEDS_GLOW, LAYERS(0), FX_SWEEP, 16),
+    // RULE(LEDS_THUMB_MODS, ALL_LAYERS, FX_CYCLE, 32),
+    RULE(LEDS_THUMB_MODS, ALL_LAYERS, FX_SWEEP, 8),
+    RANGED_RULE(LEDS_GLOW, LAYERS(1), FX_SWEEP, 133, 190, 8), // num, blue-purple-ish
+    RANGED_RULE(LEDS_GLOW, LAYERS(2), FX_CYCLE, 74, 94, 8), // sym, green-ish
+    RANGED_RULE(LEDS_GLOW, LAYERS(3), FX_CYCLE, 17, 32, 8), // nav, yellow-orange-ish
     // RULE(LEDS_WASD, LAYERS(5), FX_SWEEP),
 };
 
-static const fx_rule_t *fx_find(uint8_t i, uint8_t layer/* , uint8_t *idx */) {
+static const fx_rule_t *fx_find(uint8_t i, uint8_t layer, uint8_t *idx) {
     for (uint8_t r = 0; r < ARRAY_SIZE(fx_rules); r++) {
         if (!(fx_rules[r].layers & LAYERS(layer))) continue;
         for (uint8_t k = 0; k < fx_rules[r].count; k++) {
             if (fx_rules[r].leds[k] == i) {
-                // *idx = k;
+                *idx = k;
                 return &fx_rules[r];
             }
         }
@@ -238,21 +247,28 @@ static const fx_rule_t *fx_find(uint8_t i, uint8_t layer/* , uint8_t *idx */) {
 
 static HSV apply_fx(uint8_t i, uint8_t layer, HSV hsv) {
     uint8_t spd = rgb_matrix_config.speed;
-    uint8_t tb  = scale16by8(g_rgb_timer, spd / 2);  // breathing clock, NOTE: originally /4 with static color
-    uint8_t ts  = scale16by8(g_rgb_timer, spd / 8);  // sweep clock
-    uint8_t tc  = scale16by8(g_rgb_timer, spd / 32); // cycle clock
 
-    const fx_rule_t *rule = fx_find(i, layer);
-    if (rule) {
-        uint8_t offset = (rule->mode == FX_SWEEP) ? (uint8_t)(g_led_config.point[i].x) : 0;
-        uint8_t clock = (rule->mode == FX_SWEEP) ? ts : tc;
-        hsv.h = offset - clock;
+    uint8_t k = 0;
+    const fx_rule_t *rule = fx_find(i, layer, &k);
+    if (ui_state.rgb_fx_on && rule) {
+        uint8_t range = rule->hue_hi - rule->hue_lo;
+        uint8_t t     = scale16by8(g_rgb_timer, spd / rule->speed_divider);
+
+        uint8_t offset = 0;
+        if (rule->mode == FX_SWEEP && rule->count > 1) {
+            offset = (uint16_t)k * RAINBOW_SPAN / (rule->count - 1);
+        }
+
+        uint8_t phase = offset - t;
+        hsv.h = range > 0 ? rule->hue_lo + scale8(sin8(phase), range)
+                          : phase;
         hsv.s = 255;
         hsv.v = MAX(hsv.v, RAINBOW_MIN_V);
     }
 
     // caps word / layer lock LED
     if (layer == 0 && i == 11 && ui_state.caps_word) {
+        uint8_t tb  = scale16by8(g_rgb_timer, spd / 2);  // NOTE: originally /4 with static color
         hsv.v = scale8(hsv.v, 64 + scale8(sin8(tb), 191));
     }
 
@@ -268,7 +284,7 @@ static bool layer_colors(effect_params_t* params) {
                              | default_layer_state;
 
     uint8_t layer = get_highest_layer(base_state);
-    if (layer >= ARRAY_SIZE(layer_map)) layer = 0;   // undefined layers use base
+    if (layer >= ARRAY_SIZE(layer_map)) layer = 0; // undefined layers use base
 
     uint8_t val = rgb_matrix_get_val() * idle_scale() / 255; // keeps brightness keys working
     for (uint8_t i = led_min; i < led_max; i++) {

@@ -31,6 +31,7 @@ enum custom_keycodes {
     U_WFWD,
     U_EUR,
     U_ESZ,
+    U_RGB_FX_TOGG,
 };
 
 // Aliases for readability
@@ -72,12 +73,14 @@ enum custom_keycodes {
 #define SYM_CIRC CTL_T(KC_6)
 #define SYM_PIPE SFT_T(KC_BSLS)
 
-#define SET_NOT_MAC (1 << 0)
+#define SET_MAC (1 << 0)
 #define SET_SWAP (1 << 1)
+#define SET_RGB_FX_OFF (1 << 2)
 
 static bool    swap_btns    = false;
 static uint8_t swapped_held = 0; // button bits we are currently holding
 static bool    is_mac       = false;
+static bool    rgb_fx_on    = true;
 ui_state_t     ui_state;
 
 static void ui_state_sync_handler(uint8_t in_len, const void *in_data, uint8_t out_len, void *out_data) {
@@ -88,12 +91,25 @@ static void ui_state_sync_handler(uint8_t in_len, const void *in_data, uint8_t o
 }
 
 static void settings_save(void) {
-    eeconfig_update_user((is_mac ? 0 : SET_NOT_MAC) | (swap_btns ? SET_SWAP : 0));
+    eeconfig_update_user((is_mac ? SET_MAC : 0) | (swap_btns ? SET_SWAP : 0) | (rgb_fx_on ? 0 : SET_RGB_FX_OFF));
 }
 
 static void set_mac(bool mac) {
     if (mac != is_mac) {
         is_mac = mac;
+        settings_save();
+    }
+}
+
+static void set_swap_btns(bool swap) {
+    swap_btns    = !swap_btns;
+    swapped_held = 0; // avoid a stuck button when toggling mid-hold
+    settings_save();
+}
+
+static void set_rgb_fx_on(bool enabled) {
+    if (rgb_fx_on != enabled) {
+        rgb_fx_on = enabled;
         settings_save();
     }
 }
@@ -115,9 +131,7 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     switch (keycode) {
         case U_SWAP_BTN:
             if (record->event.pressed) {
-                swap_btns    = !swap_btns;
-                swapped_held = 0; // avoid a stuck button when toggling mid-hold
-                settings_save();
+                set_swap_btns(!swap_btns);
             }
             return false;
         case MS_BTN1:
@@ -178,6 +192,11 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
                 return false;
             }
             break;
+        case U_RGB_FX_TOGG:
+            if (record->event.pressed) {
+                set_rgb_fx_on(!rgb_fx_on);
+            }
+            return false;
     }
     return true;
 }
@@ -196,8 +215,9 @@ void keyboard_post_init_user(void) {
     rgb_matrix_mode_noeeprom(RGB_MATRIX_CUSTOM_layer_colors);
 
     uint32_t s = eeconfig_read_user();
-    is_mac     = !(s & SET_NOT_MAC);
+    is_mac     = (s & SET_MAC) != 0;
     swap_btns  = (s & SET_SWAP) != 0;
+    rgb_fx_on  = !(s & SET_RGB_FX_OFF);
 }
 
 void housekeeping_task_user(void) {
@@ -205,13 +225,8 @@ void housekeeping_task_user(void) {
     static ui_state_t last;
     static uint32_t   last_sync = 0;
 
-    ui_state_t now = {
-        .is_mac    = is_mac,
-        .swap_btns = swap_btns,
-        .caps_word = is_caps_word_on(),
-        .locked    = is_layer_locked(get_highest_layer(layer_state)),
-    };
-    ui_state = now;
+    ui_state_t now = {.is_mac = is_mac, .swap_btns = swap_btns, .caps_word = is_caps_word_on(), .locked = is_layer_locked(get_highest_layer(layer_state)), .rgb_fx_on = rgb_fx_on};
+    ui_state       = now;
 
     if (memcmp(&now, &last, sizeof now) != 0 || timer_elapsed32(last_sync) > 1000) {
         if (transaction_rpc_send(USER_SYNC_UI_STATE, sizeof now, &now)) {
@@ -245,9 +260,6 @@ bool process_detected_host_os_user(os_variant_t detected_os) {
 // TODO: gaming layer + LED map + display icon 
 // TODO: mouse clutch
 // TODO: guitar-pro layer + LED map + display icon
-
-// LEDs
-// TODO: RGB effects: reactive bright
 
 /* HINT: QMK FEATURE CRASH COURSE: =========================================
  *
@@ -447,17 +459,17 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
  * |--------+------+------+------+------+------|                              |------+------+------+------+------+--------|
  * |        |      |      |      | BLI  |      |                              | TOG  | SAI  | HUI  | VAI  | MOD  |        |
  * |--------+------+------+------+------+------+-------------.  ,-------------+------+------+------+------+------+--------|
- * |        |      |      |      | BLD  |      |      |      |  |      |      |      | SAD  | HUD  | VAD  | RMOD |        |
+ * |        |      |      |      | BLD  |      |      |      |  |      |      |RGBtog| SAD  | HUD  | VAD  | RMOD |        |
  * `----------------------+------+------+------+------+------|  |------+------+------+------+------+----------------------'
  *                        |      |      |      |      |      |  |      |      |      |      |      |
  *                        |      |      |      |      |      |  |      |      |      |      |      |
  *                        `----------------------------------'  `----------------------------------'
  */
     [_ADJUST] = LAYOUT(
-      XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, U_OS_TOGG,                               U_SWAP_BTN, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, QK_BOOT,
-      XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX,   BL_UP, XXXXXXX,                                    RM_TOGG, RM_SATU, RM_HUEU, RM_VALU, RM_NEXT, XXXXXXX,
-      XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, BL_DOWN, XXXXXXX,XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, RM_SATD, RM_HUED, RM_VALD, RM_PREV, XXXXXXX,
-                                 _______, _______, _______,_______, _______, _______, _______, _______, _______, _______
+      XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, U_OS_TOGG,                                        U_SWAP_BTN, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, QK_BOOT,
+      XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX,   BL_UP,   XXXXXXX,                                           RM_TOGG, RM_SATU, RM_HUEU, RM_VALU, RM_NEXT, XXXXXXX,
+      XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, BL_DOWN,   XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, U_RGB_FX_TOGG, RM_SATD, RM_HUED, RM_VALD, RM_PREV, XXXXXXX,
+                                 _______, _______,   _______, _______, _______, _______, _______,       _______, _______, _______
     ),
 
 // /*
@@ -479,6 +491,29 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 //       _______, KC_LSFT, KC_A,  KC_W,    KC_D,    KC_F,                                        _______, _______, _______, _______, _______, _______,
 //       _______, KC_LCTL, KC_Z,  KC_S,    KC_C,    KC_B,    _______, _______, _______, _______, _______, _______, _______, _______, _______, _______,
 //                                _______, _______, KC_SPC,  _______, _______, _______, _______, _______, _______, _______
+//     ),
+
+// /*
+//  *  Guitar Pro layer
+//  *
+//  * ,-------------------------------------------.                              ,-------------------------------------------.
+//  * |        |      |   7  |   8  |   9  |      |                              |alt+← |      |      |      |      |        |
+//  * |--------+------+------+------+------+------|                              |------+------+------+------+------+--------|
+//  * |        |   G? |  A4  |  ^5  |  S6  |      |                              |  ←   |  S↓  |  ^↑  |  A→  |  G?  |  ENTER |
+//  * |--------+------+------+------+------+------+-------------.  ,-------------+------+------+------+------+------+--------|
+//  * |  Bend  |   0  |   1  |   2  |   3  |      |      |LyrLck|  |      |      |      |      |      |      |      |        |
+//  * `----------------------+------+------+------+------+------|  |------+------+------+------+------+----------------------'
+//  *                        |      |      |      |      |      |  |      |      |      |      |      |
+//  *                        |      |      |      |      |      |  |      |      |      |      |      |
+//  *                        `----------------------------------'  `----------------------------------'
+//  */
+    // Q: Bend, stacc, dotted, triplet, inc/dec length, PM, harmonic
+    // Q: reverse sides?
+//     [_LAYERINDEX] = LAYOUT(
+//       _______, _______, _______, _______, _______, _______,                                     _______, _______, _______, _______, _______, _______,
+//       _______, _______, _______, _______, _______, _______,                                     _______, _______, _______, _______, _______, _______,
+//       _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______,
+//                                  _______, _______, _______, _______, _______, _______, _______, _______, _______, _______
 //     ),
 
 /*
