@@ -15,7 +15,7 @@
 #include "graphics/icons/data_object.qgf.h"
 #include "graphics/icons/functions.qgf.h"
 #include "graphics/icons/settings.qgf.h"
-#include "graphics/icons/trackpad_input.qgf.h"
+// #include "graphics/icons/trackpad_input.qgf.h"
 
 #include "graphics/icons/keyboard_control_key.qgf.h"
 #include "graphics/icons/keyboard_option_key.qgf.h"
@@ -27,6 +27,7 @@
 #include "graphics/icons/keyboard_capslock.qgf.h"
 #include "graphics/icons/apple_logo.qgf.h"
 #include "graphics/icons/diamond.qgf.h"
+#include "graphics/icons/gamepad.qgf.h"
 
 // Layout
 #define ICON_SIZE 120
@@ -281,14 +282,15 @@ bool module_post_init_kb(void) {
 
     // Load icons (held for firmware lifetime)
     layer_icons[0] = qp_load_image_mem(gfx_splitkb);
-    layer_icons[1] = qp_load_image_mem(gfx_calculate);    //  󱖦 
-    layer_icons[2] = qp_load_image_mem(gfx_data_object);  // 󰘦  
-    layer_icons[3] = qp_load_image_mem(gfx_open_with);    // 4 arrows?  
-    layer_icons[4] = qp_load_image_mem(gfx_settings);     // 
-    layer_icons[5] = qp_load_image_mem(gfx_mouse);        // 󰍽
-    layer_icons[6] = qp_load_image_mem(gfx_functions);    // 󰊕 󰡱
-    layer_icons[7] = qp_load_image_mem(gfx_window_tiles); // _WINDOW (was _MEDIA / music_note) // 󰐎
-    layer_icons[8] = qp_load_image_mem(gfx_trackpad_input);
+    layer_icons[1] = qp_load_image_mem(gfx_gamepad);      // 
+    layer_icons[2] = qp_load_image_mem(gfx_calculate);    //  󱖦 
+    layer_icons[3] = qp_load_image_mem(gfx_data_object);  // 󰘦  
+    layer_icons[4] = qp_load_image_mem(gfx_open_with);    // 4 arrows?  
+    layer_icons[5] = qp_load_image_mem(gfx_settings);     // 
+    layer_icons[6] = qp_load_image_mem(gfx_mouse);        // 󰍽
+    layer_icons[7] = qp_load_image_mem(gfx_functions);    // 󰊕 󰡱
+    layer_icons[8] = qp_load_image_mem(gfx_window_tiles); // _WINDOW (was _MEDIA / music_note) // 󰐎
+    // layer_icons[9] = qp_load_image_mem(gfx_trackpad_input);
 
     mod_icons[0]     = qp_load_image_mem(gfx_keyboard_control_key);
     mod_icons[1]     = qp_load_image_mem(gfx_keyboard_option_key);

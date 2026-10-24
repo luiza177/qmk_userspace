@@ -82,6 +82,10 @@ static const uint8_t PROGMEM palette[][3] = {
     [C_BOOT]  = { 74, 255, 255},   // QK_BOOT
     [C_ADJT]  = {250, 255, 180},   // idle thumbs
 
+    // wasd
+    // secondary
+    // mods
+
     [C_MS]    = { 12, 200, 255},   // mouse buttons
 
     [C_ST_ON]   = {  0,   0, 255},   // layer locked
@@ -131,32 +135,40 @@ static const uint8_t PROGMEM layer_map[][RGB_MATRIX_LED_COUNT] = {
                                 C_TR,   C_TC,   C_TG,   C_TC,   C_TC,   C_TC,   C_TY,   C_TB,   C_TC,   C_OFF
     ),
 
-    // ---- 1: num / func ----
-    [1] = GRID(C_GFUNC, C_GNUM,
+    // ---- 1: gaming ---- Q: is it possible to not just copy base layer, AKA DRY?
+    [1] = GRID(C_GBASE, C_GBASE,
+        C_DIM,  C_OFF,  C_KEY,  C_KEY,   C_KEY,  C_KEY,                                  C_KEY,  C_KEY,  C_KEY,  C_KEY,  C_KEY,  C_MOD,
+        C_DIM,  C_MOD,  C_HOME, C_HOME,  C_HOME, C_KEY,                                  C_KEY,  C_HOME, C_HOME, C_HOME, C_PUNH, C_PUN,
+        C_DIM,  C_MOD,  C_KEY,  C_HOME,  C_KEY,  C_KEY,  C_OFF,  C_MOD,  C_DIM,  C_DIM,  C_KEY,  C_KEY,  C_PUN,  C_PUN,  C_PUN,  C_MOD,
+                                C_TR,   C_TC,    C_HOME, C_TC,   C_TC,   C_TC,   C_TY,   C_TB,   C_TC,   C_OFF
+    ),
+
+    // ---- 2: num / func ----
+    [2] = GRID(C_GFUNC, C_GNUM,
         C_DIM,  C_F9,   C_F10,  C_F11,  C_F12,  C_OFF,                                   C_OPR,  C_NUM,  C_NUM,  C_NUM,  C_OPR,  C_DIM,
         C_DIM,  C_F8,   C_F7,   C_F6,   C_F5,   C_OPR,                                   C_OPR,  C_NUM,  C_NUM,  C_NUM,  C_OPR,  C_OPR,
         C_DIM,  C_F4,   C_F3,   C_F2,   C_F1,   C_OFF, C_DIM,   C_TB,   C_VDIM,  C_VDIM, C_NUM,  C_NUM,  C_NUM,  C_NUM,  C_OPR,  C_DIM,
                                 C_TRD,  C_NUMT, C_TGD, C_NUMT,  C_NUMT, C_NUMT,  C_TYD,  C_TB,   C_NUMT, C_OFF
     ),
 
-    // ---- 2: sym ----
-    [2] = GRID(C_GSYM, C_GSYM,
+    // ---- 3: sym ----
+    [3] = GRID(C_GSYM, C_GSYM,
         C_DIM,  C_OFF,  C_TXT,  C_TXT,  C_COD,  C_BRK,                                  C_BRK,  C_MTH,  C_MTH,  C_TXT,  C_TXT,  C_DIM,
         C_DIM,  C_TXTH, C_TXTH, C_TXTH, C_CODH, C_BRK,                                  C_BRK,  C_MTH,  C_MTH,  C_TXT,  C_TXT,  C_SYMT,
         C_DIM,  C_OFF,  C_OFF,  C_COD,  C_COD,  C_BRK,  C_DIM,  C_TG,   C_VDIM, C_VDIM, C_BRK,  C_MTH,  C_MTH,  C_COD,  C_TXT,  C_DIM,
                                 C_TRD,  C_SYMT, C_TG,   C_SYMT, C_SYMT, C_SYMT, C_TYD,  C_TBD,  C_SYMT, C_OFF
     ),
 
-    // ---- 3: nav ----
-    [3] = GRID(C_GNAV, C_GNAV,
+    // ---- 4: nav ----
+    [4] = GRID(C_GNAV, C_GNAV,
         C_DIM,  C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_OFF,                                  C_NAVK, C_NAVK, C_NAVK, C_NAVK, C_NAVK, C_DIM,
         C_DIM,  C_NAVM, C_NAVM, C_NAVM, C_NAVM, C_OFF,                                  C_ARW,  C_ARW,  C_ARW,  C_ARW,  C_OFF,  C_NAVT,
         C_DIM,  C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_MED,  C_TY,   C_VDIM, C_VDIM, C_MED,  C_MED,  C_MED,  C_OFF,  C_OFF,  C_DIM,
                                 C_TRD,  C_NAVT, C_TGD,  C_NAVT, C_NAVT, C_NAVT, C_TY,   C_TBD,  C_NAVT, C_OFF
     ),
 
-    // ---- 4: adjust ----
-    [4] = GRID(C_GADJ, C_GADJ,
+    // ---- 5: adjust ----
+    [5] = GRID(C_GADJ, C_GADJ,
         C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_ST_WIN,                               C_ST_SWAP,C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_BOOT,
         C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_BL,   C_OFF,                                  C_ADJ,    C_ADJ,  C_ADJ,  C_ADJ,  C_ADJ,  C_OFF,
         C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_BL,   C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_DIM,    C_ADJ,  C_ADJ,  C_ADJ,  C_ADJ,  C_OFF,
@@ -175,11 +187,11 @@ static uint8_t state_override(uint8_t i, uint8_t layer, uint8_t c) {
         if (ui_state.locked) return C_ST_ON;
     }
     // Num, Sym or Nav layer are locked
-    if (layer == 1 || layer == 2 || layer == 3) {
+    if (layer == 1 || layer == 2 || layer == 3 || layer == 4) {
         if (i == 11 && ui_state.locked) return C_ST_ON;
     }
     // adjust layer: toggle keys show their state (use your actual LEDs)
-    if (layer == 4) {
+    if (layer == 5) {
         if (i == 25 && ui_state.is_mac) return C_ST_MAC;
         if (i == 56 && ui_state.swap_btns) return C_ST_SWAPPED;
         if (i == 44 && ui_state.rgb_fx_on) return C_ST_RGB_FX;
@@ -205,6 +217,7 @@ static uint8_t idle_scale(void) {
 GROUP(LEDS_GLOW,  0, 1, 2, 3, 4, 5, 31, 32, 33, 34, 35, 36);
 GROUP(LEDS_THUMB_MODS, 6, 7, 9, 18, 24, 30, 61, 49, 40, 43, 42, 37);
 GROUP(LEDS_WASD,  22, 21, 20, 15);
+GROUP(LEDS_GAME_MODS, 17, 23);
 
 enum { FX_CYCLE, FX_SWEEP }; // cycle: one color for the group; sweep: colors travel along it
 
@@ -218,7 +231,7 @@ typedef struct {
 } fx_rule_t;
 
 #define LAYERS(n) (1u << (n))
-#define ALL_LAYERS (LAYERS(0) | LAYERS(1) | LAYERS(2) | LAYERS(3)) // all but settings layers
+#define ALL_LAYERS (LAYERS(0) | /* LAYERS(1) |*/ LAYERS(2) | LAYERS(3) | LAYERS(4)) // all but settings and gaming layers
 #define RULE(g, layers, mode, speed_divider) { g, ARRAY_SIZE(g), (layers), (mode), 0, 0, (speed_divider) }
 #define RANGED_RULE(g, layers, mode, hue_lo, hue_hi, speed_divider) { g, ARRAY_SIZE(g), (layers), (mode), (hue_lo), (hue_hi), (speed_divider) }
 
@@ -226,10 +239,13 @@ static const fx_rule_t fx_rules[] = {
     // RULE(LEDS_GLOW, LAYERS(0), FX_SWEEP, 16),
     // RULE(LEDS_THUMB_MODS, ALL_LAYERS, FX_CYCLE, 32),
     RULE(LEDS_THUMB_MODS, ALL_LAYERS, FX_SWEEP, 8),
-    RANGED_RULE(LEDS_GLOW, LAYERS(1), FX_SWEEP, 133, 190, 8), // num, blue-purple-ish
-    RANGED_RULE(LEDS_GLOW, LAYERS(2), FX_CYCLE, 74, 94, 8), // sym, green-ish
-    RANGED_RULE(LEDS_GLOW, LAYERS(3), FX_CYCLE, 17, 32, 8), // nav, yellow-orange-ish
-    // RULE(LEDS_WASD, LAYERS(5), FX_SWEEP),
+    RULE(LEDS_GLOW, LAYERS(1), FX_SWEEP, 16),
+    // RULE(LEDS_THUMB_MODS, LAYERS(1), FX_SWEEP, 4),
+    RULE(LEDS_WASD, LAYERS(1), FX_SWEEP, 2),
+    RULE(LEDS_GAME_MODS, LAYERS(1), FX_CYCLE, 8),
+    RANGED_RULE(LEDS_GLOW, LAYERS(2), FX_SWEEP, 133, 190, 8), // num, blue-purple-ish
+    RANGED_RULE(LEDS_GLOW, LAYERS(3), FX_CYCLE, 74, 94, 8), // sym, green-ish
+    RANGED_RULE(LEDS_GLOW, LAYERS(4), FX_CYCLE, 17, 32, 8), // nav, yellow-orange-ish
 };
 
 static const fx_rule_t *fx_find(uint8_t i, uint8_t layer, uint8_t *idx) {

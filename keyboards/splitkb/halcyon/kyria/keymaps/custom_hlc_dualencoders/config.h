@@ -34,7 +34,7 @@
 // INFO: Auto Mouse layer
 // HINT: Also call set_auto_mouse_layer(_MOUSE) in pointing_device_init_user().
 #define POINTING_DEVICE_AUTO_MOUSE_ENABLE
-#define AUTO_MOUSE_DEFAULT_LAYER 5 // _AUTO_MOUSE
+#define AUTO_MOUSE_DEFAULT_LAYER 6 // _AUTO_MOUSE
 #define AUTO_MOUSE_TIME 400        // ms before dropping back to typing
 // #define AUTO_MOUSE_THRESHOLD 10  // movement needed to activate (raise if triggered by accident)
 // // #define AUTO_MOUSE_DELAY 400     // ms after a keypress before the mouse layer can re-trigger
