@@ -1,11 +1,11 @@
 #pragma once
 
 #define BOTH_SHIFTS_TURNS_ON_CAPS_WORD
-#define CAPS_WORD_IDLE_TIMEOUT 0
+#define CAPS_WORD_IDLE_TIMEOUT 0 // HINT: never times out
 
 // #undef TAPPING_TERM
 // #define TAPPING_TERM 200 // INFO: ms between tap/hold (170-250 ms usually)
-// // #define TAPPING_TERM_PER_KEY
+// // #define TAPPING_TERM_PER_KEY // FIXME: maybe longer tap-term for space-layer keys, or mod taps?
 
 // INFO: tap then press again within this = key repeat, not hold
 #define QUICK_TAP_TERM 100
@@ -13,10 +13,10 @@
 // HINT: Needs hand info; if it misbehaves, see QMK's Chordal Hold docs for chordal_hold_layout
 // #define CHORDAL_HOLD // INFO: opposite-hand rolls = hold, same-hand rolls = tap
 
-// #define FLOW_TAP_TERM 150 // INFO: during fast typing, mod-taps act as plain taps
+#define FLOW_TAP_TERM 100 // INFO: during fast typing, mod-taps act as plain taps
 
 // Older alternatives (usually skip these if using Chordal Hold):
-// #define PERMISSIVE_HOLD          // hold triggers if another key is pressed and released
+#define PERMISSIVE_HOLD // hold triggers if another key is pressed and released
 // #define HOLD_ON_OTHER_KEY_PRESS  // hold triggers as soon as another key is pressed
 // #define RETRO_TAPPING            // hold with no other key still sends the tap
 

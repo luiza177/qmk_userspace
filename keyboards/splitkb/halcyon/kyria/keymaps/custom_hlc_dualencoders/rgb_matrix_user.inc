@@ -2,6 +2,7 @@ RGB_MATRIX_EFFECT(layer_colors)
 
 #define MOUSE_BTN_1 37
 #define MOUSE_BTN_2 42
+#define SNIPE_BTN 56
 
 #ifdef RGB_MATRIX_CUSTOM_EFFECT_IMPLS
 #include "ui_state.h"
@@ -86,7 +87,7 @@ static const uint8_t PROGMEM palette[][3] = {
     // secondary
     // mods
 
-    [C_MS]    = { 12, 200, 255},   // mouse buttons
+    [C_MS]    = { 12, 215, 255},   // mouse buttons
 
     [C_ST_ON]   = {  0,   0, 255},   // layer locked
     [C_ST_CAPS] = { 35, 255, 255},   // caps word on
@@ -169,7 +170,7 @@ static const uint8_t PROGMEM layer_map[][RGB_MATRIX_LED_COUNT] = {
 
     // ---- 5: adjust ----
     [5] = GRID(C_GADJ, C_GADJ,
-        C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_ST_WIN,                               C_ST_SWAP,C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_BOOT,
+        C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_ST_WIN,                               C_ST_SWAP,C_OFF,  C_MS,   C_MS,   C_OFF,  C_BOOT,
         C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_BL,   C_OFF,                                  C_ADJ,    C_ADJ,  C_ADJ,  C_ADJ,  C_ADJ,  C_OFF,
         C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_BL,   C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_DIM,    C_ADJ,  C_ADJ,  C_ADJ,  C_ADJ,  C_OFF,
                                 C_TR,   C_ADJT, C_TGD,  C_ADJT, C_ADJT, C_ADJT, C_TYD,  C_TBD,    C_ADJT, C_OFF
@@ -216,8 +217,11 @@ static uint8_t idle_scale(void) {
 
 GROUP(LEDS_GLOW,  0, 1, 2, 3, 4, 5, 31, 32, 33, 34, 35, 36);
 GROUP(LEDS_THUMB_MODS, 6, 7, 9, 18, 24, 30, 61, 49, 40, 43, 42, 37);
+GROUP(LEDS_THUMB, 6, 7, 40, 43, 42, 37);
+GROUP(LEDS_MODS, 18, 24, 30, 61, 49, 43, 42);
 GROUP(LEDS_WASD,  22, 21, 20, 15);
 GROUP(LEDS_GAME_MODS, 17, 23);
+GROUP(LEDS_GAME_LAYER, 9);
 
 enum { FX_CYCLE, FX_SWEEP }; // cycle: one color for the group; sweep: colors travel along it
 
@@ -238,7 +242,8 @@ typedef struct {
 static const fx_rule_t fx_rules[] = {
     // RULE(LEDS_GLOW, LAYERS(0), FX_SWEEP, 16),
     // RULE(LEDS_THUMB_MODS, ALL_LAYERS, FX_CYCLE, 32),
-    RULE(LEDS_THUMB_MODS, ALL_LAYERS, FX_SWEEP, 8),
+    RULE(LEDS_MODS, ALL_LAYERS, FX_SWEEP, 8),
+    RULE(LEDS_GAME_LAYER, ALL_LAYERS, FX_CYCLE, 8),
     RULE(LEDS_GLOW, LAYERS(1), FX_SWEEP, 16),
     // RULE(LEDS_THUMB_MODS, LAYERS(1), FX_SWEEP, 4),
     RULE(LEDS_WASD, LAYERS(1), FX_SWEEP, 2),
@@ -305,14 +310,15 @@ static bool layer_colors(effect_params_t* params) {
     uint8_t val = rgb_matrix_get_val() * idle_scale() / 255; // keeps brightness keys working
     for (uint8_t i = led_min; i < led_max; i++) {
         uint8_t c = pgm_read_byte(&layer_map[layer][i]);
-        if (mouse_on && (i == MOUSE_BTN_1 || i == MOUSE_BTN_2)) c = C_MS;
+        bool is_mouse_btn = mouse_on && (i == MOUSE_BTN_1 || i == MOUSE_BTN_2 || i == SNIPE_BTN);
+        if (is_mouse_btn) c = C_MS;
         c = state_override(i, layer, c);
         HSV hsv = {
             pgm_read_byte(&palette[c][0]),
             pgm_read_byte(&palette[c][1]),
             pgm_read_byte(&palette[c][2])
         };
-        hsv = apply_fx(i, layer, hsv);
+        hsv = !is_mouse_btn ? apply_fx(i, layer, hsv) : hsv;
         hsv.v = (uint16_t)hsv.v * val / 255;
         RGB rgb = hsv_to_rgb(hsv);
         rgb_matrix_set_color(i, rgb.r, rgb.g, rgb.b);

@@ -32,10 +32,12 @@ enum custom_keycodes {
     U_EUR,
     U_ESZ,
     U_RGB_FX_TOGG,
+    U_SNIPE,
+    U_CPI_UP,
+    U_CPI_DN,
 };
 
 // Aliases for readability
-
 // Layer macros
 #define SPC_NUM LT(_NUM_FUNC, KC_SPC)
 #define SPC_SYM LT(_SYM, KC_SPC)
@@ -83,6 +85,27 @@ static bool    is_mac       = false;
 static bool    rgb_fx_on    = true;
 ui_state_t     ui_state;
 
+#define SNIPE_DIV 33
+static bool sniping = false;
+
+static const uint16_t cpi_pct[] = {25, 50, 66, 75, 100, 150, 200}; // % of the board's own CPI
+#define CPI_LEVELS ARRAY_SIZE(cpi_pct)
+#define CPI_DEFAULT_LEVEL 1 // the 50 entry = half of today's speed
+
+#define SET_CPI_POS 3 // bits 3-5 (yours use bits 0-2)
+#define SET_CPI_MASK (7u << SET_CPI_POS)
+
+static uint8_t  cpi_level = CPI_DEFAULT_LEVEL;
+static uint16_t cpi_base  = 0;
+
+static void cpi_apply(void) {
+    if (!cpi_base) return;
+    uint32_t cpi = (uint32_t)cpi_base * cpi_pct[cpi_level] / 100;
+    if (sniping) cpi = cpi * SNIPE_DIV / 100;
+    if (cpi < 1) cpi = 1;
+    pointing_device_set_cpi(cpi);
+}
+
 static void ui_state_sync_handler(uint8_t in_len, const void *in_data, uint8_t out_len, void *out_data) {
     if (in_len == sizeof(ui_state_t)) {
         memcpy(&ui_state, in_data, sizeof(ui_state_t));
@@ -90,7 +113,7 @@ static void ui_state_sync_handler(uint8_t in_len, const void *in_data, uint8_t o
 }
 
 static void settings_save(void) {
-    eeconfig_update_user((is_mac ? SET_MAC : 0) | (swap_btns ? SET_SWAP : 0) | (rgb_fx_on ? 0 : SET_RGB_FX_OFF));
+    eeconfig_update_user((is_mac ? SET_MAC : 0) | (swap_btns ? SET_SWAP : 0) | (rgb_fx_on ? 0 : SET_RGB_FX_OFF) | ((uint32_t)((cpi_level - CPI_DEFAULT_LEVEL) & 7) << SET_CPI_POS));
 }
 
 static void set_mac(bool mac) {
@@ -195,6 +218,24 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
                 set_rgb_fx_on(!rgb_fx_on);
             }
             return false;
+        case U_SNIPE:
+            sniping = record->event.pressed;
+            cpi_apply();
+            return false;
+        case U_CPI_UP:
+            if (record->event.pressed && cpi_level < CPI_LEVELS - 1) {
+                cpi_level++;
+                cpi_apply();
+                settings_save();
+            }
+            return false;
+        case U_CPI_DN:
+            if (record->event.pressed && cpi_level > 0) {
+                cpi_level--;
+                cpi_apply();
+                settings_save();
+            }
+            return false;
     }
     return true;
 }
@@ -216,6 +257,13 @@ void keyboard_post_init_user(void) {
     is_mac     = (s & SET_MAC) != 0;
     swap_btns  = (s & SET_SWAP) != 0;
     rgb_fx_on  = !(s & SET_RGB_FX_OFF);
+
+    uint8_t stored = (s & SET_CPI_MASK) >> SET_CPI_POS;
+    cpi_level      = (stored + CPI_DEFAULT_LEVEL) & 7;
+    if (cpi_level >= CPI_LEVELS) cpi_level = CPI_DEFAULT_LEVEL;
+
+    cpi_base = pointing_device_get_cpi(); // the board's own default
+    cpi_apply();
 }
 
 void housekeeping_task_user(void) {
@@ -251,8 +299,9 @@ bool process_detected_host_os_user(os_variant_t detected_os) {
 }
 
 // ===================================================================
-// TODO: mouse clutch
 // TODO: guitar-pro layer + LED map + display icon
+// TODO: RGB FX for adj layer RGB toggle / remove/adjust mods rgb fx
+// FIXME: stepped encoder click legs are BROKEN
 
 /* HINT: QMK FEATURE CRASH COURSE: =========================================
  *
@@ -364,7 +413,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
         KC_TAB  , KC_Q ,  KC_W   ,  KC_E  ,   KC_R ,       KC_T ,                                          KC_Y,    KC_U,     KC_I,   KC_O,    KC_P,  KC_BSPC,
         CTL_ESC , GUI_A,  ALT_S  ,  CTL_D ,   SFT_F,       KC_G ,                                          KC_H,   SFT_J,    CTL_K,  ALT_L,GUI_SEMI, CTL_QUOT,
         KC_LSFT , KC_Z ,  KC_X   ,  KC_C  ,   KC_V ,       KC_B , XXXXXXX, CW_TOGG,     U_WBAK,  U_WFWD,   KC_N,    KC_M,  KC_COMM, KC_DOT, KC_SLSH,  KC_RSFT,
-                                  MENU_ADJ, MO(_GAMING), SPC_SYM,  KC_ESC,  KC_DEL,    KC_BSPC, ENT_NAV, SPC_NUM, KC_RGUI,  XXXXXXX
+                                  MENU_ADJ, MO(_GAMING), SPC_SYM,  KC_ESC,  KC_DEL,    KC_BSPC, ENT_NAV, SPC_NUM, KC_RGUI, S(KC_SLSH)
     ),
 
 /*
@@ -437,7 +486,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
  * Adjust Layer: Default layer settings, RGB
  *
  * ,-------------------------------------------.                              ,-------------------------------------------.
- * |        |      |      |      |      |OStogg|                              |swap m|      |      |      |      |  boot  |
+ * |        |      |      |      |      |OStogg|                              |swap m|      | CPI- | CPI+ |      |  boot  |
  * |--------+------+------+------+------+------|                              |------+------+------+------+------+--------|
  * |        |      |      |      | BLI  |      |                              | TOG  | SAI  | HUI  | VAI  | MOD  |        |
  * |--------+------+------+------+------+------+-------------.  ,-------------+------+------+------+------+------+--------|
@@ -448,7 +497,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
  *                        `----------------------------------'  `----------------------------------'
  */
     [_ADJUST] = LAYOUT(
-      XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, U_OS_TOGG,                                        U_SWAP_BTN, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, QK_BOOT,
+      XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, U_OS_TOGG,                                        U_SWAP_BTN, XXXXXXX,U_CPI_DN,U_CPI_UP, XXXXXXX, QK_BOOT,
       XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX,   BL_UP,   XXXXXXX,                                           RM_TOGG, RM_SATU, RM_HUEU, RM_VALU, RM_NEXT, XXXXXXX,
       XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, BL_DOWN,   XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, XXXXXXX, U_RGB_FX_TOGG, RM_SATD, RM_HUED, RM_VALD, RM_PREV, XXXXXXX,
                                  _______, _______,   _______, _______, _______, _______, _______,       _______, _______, _______
@@ -489,8 +538,8 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 //  *                        |      |      |      |      |      |  |      |      |      |      |      |
 //  *                        `----------------------------------'  `----------------------------------'
 //  */
-    // Q: Bend, stacc, dotted, triplet, inc/dec length, PM, harmonic
-    // Q: reverse sides?
+//    // Q: Bend(b), stacc(!), dotted(.), triplet(/), inc/dec length(num+/-), PM(p), harmonic
+//    // Q: reverse sides?
 //     [_LAYERINDEX] = LAYOUT(
 //       _______, _______, _______, _______, _______, _______,                                     _______, _______, _______, _______, _______, _______,
 //       _______, _______, _______, _______, _______, _______,                                     _______, _______, _______, _______, _______, _______,
@@ -502,18 +551,18 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
  * Auto-Mouse layer
  *
  * ,-------------------------------------------.                              ,-------------------------------------------.
- * |        |      |      |      |      |      |                              |      |      |      |      |      |        |
+ * |        |      |      |      |      |      |                              | snip?|      |      |      |      |        |
  * |--------+------+------+------+------+------|                              |------+------+------+------+------+--------|
  * |        |      |      |      |      |      |                              |      |      |      |      |      |        |
  * |--------+------+------+------+------+------+-------------.  ,-------------+------+------+------+------+------+--------|
- * |        |      |      |      |      |      |      |      |  |  LMB |      |      |      |      |      |      |        |
+ * |        |      |      |      |      |      |      |      |  |  LMB | snip?|      |      |      |      |      |        |
  * `----------------------+------+------+------+------+------|  |------+------+------+------+------+----------------------'
  *                        |      |      |      |      |      |  |  RMB |      |      |      |      |
  *                        |      |      |      |      |      |  |      |      |      |      |      |
  *                        `----------------------------------'  `----------------------------------'
  */
     [_AUTO_MOUSE] = LAYOUT(
-    _______, _______, _______, _______, _______, _______,                                     _______, _______, _______, _______, _______, _______,
+    _______, _______, _______, _______, _______, _______,                                     U_SNIPE, _______, _______, _______, _______, _______,
     _______, _______, _______, _______, _______, _______,                                     _______, _______, _______, _______, _______, _______,
     _______, _______, _______, _______, _______, _______, _______, _______, MS_BTN1, _______, _______, _______, _______, _______, _______, _______,
                                _______, _______, _______, _______, _______, MS_BTN2, _______, _______, _______, _______
