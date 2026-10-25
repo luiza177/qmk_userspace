@@ -24,4 +24,6 @@ SRC += $(USER_PATH)/splitkb/hlc_tft_display/graphics/icons/keyboard_control_key.
 SRC += $(USER_PATH)/splitkb/hlc_tft_display/graphics/icons/uppercase.qgf.c \
        $(USER_PATH)/splitkb/hlc_tft_display/graphics/icons/keyboard_capslock.qgf.c \
        $(USER_PATH)/splitkb/hlc_tft_display/graphics/icons/apple_logo.qgf.c \
+       $(USER_PATH)/splitkb/hlc_tft_display/graphics/icons/lmb.qgf.c \
+       $(USER_PATH)/splitkb/hlc_tft_display/graphics/icons/rmb.qgf.c \
        $(USER_PATH)/splitkb/hlc_tft_display/graphics/icons/diamond.qgf.c

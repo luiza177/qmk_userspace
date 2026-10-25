@@ -4,6 +4,7 @@
 #include "halcyon.h"
 #include "hlc_tft_display.h"
 #include "modifiers.h"
+#include "qp.h"
 #include "timer.h"
 #include <stdlib.h>
 
@@ -24,10 +25,12 @@
 #include "graphics/icons/diamond_mod.qgf.h"
 
 #include "graphics/icons/uppercase.qgf.h"
-#include "graphics/icons/keyboard_capslock.qgf.h"
+// #include "graphics/icons/keyboard_capslock.qgf.h"
 #include "graphics/icons/apple_logo.qgf.h"
 #include "graphics/icons/diamond.qgf.h"
 #include "graphics/icons/gamepad.qgf.h"
+#include "graphics/icons/lmb.qgf.h"
+#include "graphics/icons/rmb.qgf.h"
 
 // Layout
 #define ICON_SIZE 120
@@ -58,17 +61,21 @@ static uint8_t lcd_surface_fb[SURFACE_REQUIRED_BUFFER_BYTE_SIZE(135, 240, 16)];
 
 static painter_image_handle_t layer_icons[9]   = {0};
 static painter_image_handle_t mod_icons[4]     = {0};  // Ctrl, Alt, GUI, Shift
-static painter_image_handle_t diamond_mod_icon = NULL; // Diamond (30x30) for the mod row's GUI position when CG_TOGG is OFF
-static painter_image_handle_t lock_icons[2]    = {0};  // Caps Word, Caps Lock
-static painter_image_handle_t mac_icon         = NULL; // Apple   (shown in mac mode)
-static painter_image_handle_t nonmac_icon      = NULL; // Diamond (shown when not in mac mode)
+static painter_image_handle_t diamond_mod_icon = NULL; // Diamond (30x30) for the mod row's GUI position when is_mac is OFF
+static painter_image_handle_t lock_icons[1]    = {0};  // Caps Word, Caps Lock // FIXME: remove array logic
+// static painter_image_handle_t lock_icons[2] = {0};  // Caps Word, Caps Lock
+static painter_image_handle_t mac_icon    = NULL; // Apple   (shown in mac mode)
+static painter_image_handle_t nonmac_icon = NULL; // Diamond (shown when not in mac mode)
+static painter_image_handle_t lmb_icon    = NULL; // Left mouse button (when mouse buttons are not swapped)
+static painter_image_handle_t rmb_icon    = NULL; // Right mouse button (when mouse buttons are swapped)
 
 // Sentinel initial values force first draw
-static uint8_t last_layer      = 0xFF;
-static uint8_t last_mods       = 0xFF;
-static led_t   last_led_state  = {.raw = 0xFF};
-static bool    last_caps_word  = true; // not 0 → forces first draw
-static bool    last_macos_mode = true; // not equal to initial false → forces first draw
+static uint8_t last_layer          = 0xFF;
+static uint8_t last_mods           = 0xFF;
+static led_t   last_led_state      = {.raw = 0xFF};
+static bool    last_caps_word      = true; // not 0 → forces first draw
+static bool    last_macos_mode     = true; // not equal to initial false → forces first draw
+static bool    last_mouse_btn_mode = false;
 
 // Ring buffer of accumulated sparkles on the splitkb (QWERTY) icon. Replayed
 // every time draw_layer_icon redraws layer 0 so sparkles survive layer switches.
@@ -182,7 +189,8 @@ static void draw_mods_row(uint8_t mods, bool macos_mode) {
     }
 }
 
-static void draw_locks_row(led_t leds, bool caps_word, bool macos_mode) {
+static void draw_locks_row(led_t leds, bool caps_word, bool macos_mode, bool mouse_btn_mode) {
+    // static void draw_locks_row(led_t leds, bool caps_word, bool macos_mode) {
     // Clear lock band
     qp_rect(lcd_surface, 0, LOCK_SLOT_Y, LCD_WIDTH - 1, LOCK_SLOT_Y + LOCK_SLOT_H - 1, HSV_BLACK, true);
 
@@ -190,12 +198,14 @@ static void draw_locks_row(led_t leds, bool caps_word, bool macos_mode) {
     static const int slot_left[3]  = {0, 45, 90};
     static const int slot_width[3] = {44, 44, 45};
 
-    // Slot 2 (CG_TOGG): apple in mac mode, diamond otherwise. The icon itself
+    // Slot 2 : apple in mac mode, diamond otherwise. The icon itself
     // conveys the state; the slot never lights up (no white background).
-    const bool             active[3] = {caps_word, leds.caps_lock, false};
+    // const bool             active[3] = {caps_word, leds.caps_lock, false};
+    const bool             active[3] = {caps_word, false, false};
     painter_image_handle_t icons[3]  = {
         lock_icons[0],
-        lock_icons[1],
+        // lock_icons[1],
+        mouse_btn_mode ? rmb_icon : lmb_icon,
         macos_mode ? mac_icon : nonmac_icon,
     };
 
@@ -223,17 +233,23 @@ static void draw_locks_row(led_t leds, bool caps_word, bool macos_mode) {
 // halves don't get keymap_config updates, so the keymap can override this weak
 // default to return a split-synced value.
 __attribute__((weak)) bool hlc_macos_mode(void) {
-    return keymap_config.swap_lctl_lgui;
+    // return keymap_config.swap_lctl_lgui;
+    return false;
+}
+__attribute__((weak)) bool hlc_mouse_btn_mode(void) {
+    return false;
 }
 
 void update_display(void) {
-    uint8_t cur_layer      = get_highest_layer(layer_state | default_layer_state);
-    uint8_t cur_mods       = get_mods() | get_oneshot_mods() | get_weak_mods();
-    led_t   cur_leds       = host_keyboard_led_state();
-    bool    cur_caps_word  = is_caps_word_on();
-    bool    cur_macos_mode = hlc_macos_mode();
+    uint8_t cur_layer          = get_highest_layer(layer_state | default_layer_state);
+    uint8_t cur_mods           = get_mods() | get_oneshot_mods() | get_weak_mods();
+    led_t   cur_leds           = host_keyboard_led_state();
+    bool    cur_caps_word      = is_caps_word_on();
+    bool    cur_macos_mode     = hlc_macos_mode();
+    bool    cur_mouse_btn_mode = hlc_mouse_btn_mode();
 
-    bool mac_changed = (cur_macos_mode != last_macos_mode);
+    bool mac_changed            = (cur_macos_mode != last_macos_mode);
+    bool mouse_btn_mode_changed = (cur_mouse_btn_mode != last_mouse_btn_mode);
 
     if (cur_layer != last_layer) {
         draw_layer_icon(cur_layer);
@@ -245,12 +261,15 @@ void update_display(void) {
         last_mods = cur_mods;
     }
     // if (cur_leds.raw != last_led_state.raw || cur_caps_word != last_caps_word) {
-    if (cur_leds.raw != last_led_state.raw || cur_caps_word != last_caps_word || mac_changed) {
-        draw_locks_row(cur_leds, cur_caps_word, cur_macos_mode);
+    // if (cur_leds.raw != last_led_state.raw || cur_caps_word != last_caps_word || mac_changed) {
+    if (cur_leds.raw != last_led_state.raw || cur_caps_word != last_caps_word || mac_changed || mouse_btn_mode_changed) {
+        // draw_locks_row(cur_leds, cur_caps_word, cur_macos_mode);
+        draw_locks_row(cur_leds, cur_caps_word, cur_macos_mode, cur_mouse_btn_mode);
         last_led_state = cur_leds;
         last_caps_word = cur_caps_word;
     }
-    last_macos_mode = cur_macos_mode;
+    last_macos_mode     = cur_macos_mode;
+    last_mouse_btn_mode = cur_mouse_btn_mode;
 }
 
 // Called from halcyon.c
@@ -299,9 +318,11 @@ bool module_post_init_kb(void) {
     diamond_mod_icon = qp_load_image_mem(gfx_diamond_mod);
 
     lock_icons[0] = qp_load_image_mem(gfx_uppercase);
-    lock_icons[1] = qp_load_image_mem(gfx_keyboard_capslock);
-    mac_icon      = qp_load_image_mem(gfx_apple_logo);
-    nonmac_icon   = qp_load_image_mem(gfx_diamond);
+    // lock_icons[1] = qp_load_image_mem(gfx_keyboard_capslock);
+    lmb_icon    = qp_load_image_mem(gfx_lmb);
+    rmb_icon    = qp_load_image_mem(gfx_rmb);
+    mac_icon    = qp_load_image_mem(gfx_apple_logo);
+    nonmac_icon = qp_load_image_mem(gfx_diamond);
 
     qp_surface_draw(lcd_surface, lcd, 0, 0, 0);
     qp_flush(lcd);

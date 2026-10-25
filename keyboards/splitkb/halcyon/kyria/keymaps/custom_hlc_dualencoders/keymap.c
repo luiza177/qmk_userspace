@@ -86,7 +86,6 @@ ui_state_t     ui_state;
 static void ui_state_sync_handler(uint8_t in_len, const void *in_data, uint8_t out_len, void *out_data) {
     if (in_len == sizeof(ui_state_t)) {
         memcpy(&ui_state, in_data, sizeof(ui_state_t));
-        is_mac = ui_state.is_mac;
     }
 }
 
@@ -102,7 +101,7 @@ static void set_mac(bool mac) {
 }
 
 static void set_swap_btns(bool swap) {
-    swap_btns    = !swap_btns;
+    swap_btns    = swap;
     swapped_held = 0; // avoid a stuck button when toggling mid-hold
     settings_save();
 }
@@ -117,7 +116,11 @@ static void set_rgb_fx_on(bool enabled) {
 // ==============================================================
 #ifdef HLC_TFT_DISPLAY
 bool hlc_macos_mode(void) {
-    return is_mac;
+    return ui_state.is_mac;
+}
+
+bool hlc_mouse_btn_mode(void) {
+    return ui_state.swap_btns;
 }
 #endif
 
@@ -126,6 +129,13 @@ void pointing_device_init_user(void) {
     set_auto_mouse_enable(true);
 }
 #endif
+
+#define TAP_SHIFTED(kc)                               \
+    if (record->tap.count && record->event.pressed) { \
+        tap_code16(kc);                               \
+        return false;                                 \
+    }                                                 \
+    break
 
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     switch (keycode) {
@@ -161,34 +171,22 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
             if (record->event.pressed) tap_code16(is_mac ? A(KC_S) : RALT(KC_S));
             return false;
         case SYM_EXLM:
-            if (record->tap.count && record->event.pressed) {
-                tap_code16(KC_EXLM);
-                return false;
-            }
+            TAP_SHIFTED(KC_EXLM);
         case SYM_AT:
-            if (record->tap.count && record->event.pressed) {
-                tap_code16(KC_AT);
-                return false;
-            }
+            TAP_SHIFTED(KC_AT);
         case SYM_CIRC:
-            if (record->tap.count && record->event.pressed) {
-                tap_code16(KC_CIRC);
-                return false;
-            }
+            TAP_SHIFTED(KC_CIRC);
         case SYM_PIPE:
-            if (record->tap.count && record->event.pressed) {
-                tap_code16(KC_PIPE);
-                return false;
-            }
+            TAP_SHIFTED(KC_PIPE);
         case KC_HOME:
             if (is_mac) {
-                tap_code16(G(KC_LEFT));
+                if (record->event.pressed) tap_code16(G(KC_LEFT));
                 return false;
             }
             break;
         case KC_END:
             if (is_mac) {
-                tap_code16(G(KC_RIGHT));
+                if (record->event.pressed) tap_code16(G(KC_RIGHT));
                 return false;
             }
             break;
@@ -202,7 +200,7 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
 }
 
 report_mouse_t pointing_device_task_user(report_mouse_t r) {
-    if (swap_btns && (r.buttons & 0x01)) { // Q: how does this work?
+    if (swap_btns && (r.buttons & 0x01)) {
         r.buttons = (r.buttons & ~0x01) | 0x02;
     }
     r.buttons |= swapped_held; // reapply every report
@@ -253,11 +251,6 @@ bool process_detected_host_os_user(os_variant_t detected_os) {
 }
 
 // ===================================================================
-// DISPLAY
-// TODO: display icon for Left vs right mouse buttons
-
-// LAYERS
-// TODO: gaming layer + LED map + display icon 
 // TODO: mouse clutch
 // TODO: guitar-pro layer + LED map + display icon
 
