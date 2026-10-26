@@ -222,6 +222,7 @@ GROUP(LEDS_MODS, 18, 24, 30, 61, 49, 43, 42);
 GROUP(LEDS_WASD,  22, 21, 20, 15);
 GROUP(LEDS_GAME_MODS, 17, 23);
 GROUP(LEDS_GAME_LAYER, 9);
+GROUP(LED_RGB_ADJ, 44);
 
 enum { FX_CYCLE, FX_SWEEP }; // cycle: one color for the group; sweep: colors travel along it
 
@@ -242,11 +243,12 @@ typedef struct {
 static const fx_rule_t fx_rules[] = {
     // RULE(LEDS_GLOW, LAYERS(0), FX_SWEEP, 16),
     // RULE(LEDS_THUMB_MODS, ALL_LAYERS, FX_CYCLE, 32),
-    RULE(LEDS_MODS, ALL_LAYERS, FX_SWEEP, 8),
+    // RULE(LEDS_MODS, ALL_LAYERS, FX_SWEEP, 8),
     RULE(LEDS_GAME_LAYER, ALL_LAYERS, FX_CYCLE, 8),
     RULE(LEDS_GLOW, LAYERS(1), FX_SWEEP, 16),
     // RULE(LEDS_THUMB_MODS, LAYERS(1), FX_SWEEP, 4),
     RULE(LEDS_WASD, LAYERS(1), FX_SWEEP, 2),
+    RULE(LED_RGB_ADJ, LAYERS(5), FX_CYCLE, 2),
     RULE(LEDS_GAME_MODS, LAYERS(1), FX_CYCLE, 8),
     RANGED_RULE(LEDS_GLOW, LAYERS(2), FX_SWEEP, 133, 190, 8), // num, blue-purple-ish
     RANGED_RULE(LEDS_GLOW, LAYERS(3), FX_CYCLE, 74, 94, 8), // sym, green-ish

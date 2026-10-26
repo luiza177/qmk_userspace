@@ -18,12 +18,12 @@
 // Older alternatives (usually skip these if using Chordal Hold):
 #define PERMISSIVE_HOLD // hold triggers if another key is pressed and released
 // #define HOLD_ON_OTHER_KEY_PRESS  // hold triggers as soon as another key is pressed
-// #define RETRO_TAPPING            // hold with no other key still sends the tap
+// #define RETRO_TAPPING            // hold with no other key still sends the tap // Q: maybe
 
 // INFO: for Combos (a+b=c)
 #define COMBO_TERM 30 // ms window to press all combo keys
 #undef COMBO_MUST_PRESS_IN_ORDER
-#define COMBO_MUST_TAP_PER_COMBO
+#define COMBO_MUST_TAP_PER_COMBO // INFO: ??
 // #define COMBO_ONLY_FROM_LAYER 0  // combos work only on this layer
 
 // INFO: for encoders

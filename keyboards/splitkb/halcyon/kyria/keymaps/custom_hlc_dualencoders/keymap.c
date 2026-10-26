@@ -299,8 +299,7 @@ bool process_detected_host_os_user(os_variant_t detected_os) {
 }
 
 // ===================================================================
-// TODO: guitar-pro layer + LED map + display icon
-// TODO: RGB FX for adj layer RGB toggle / remove/adjust mods rgb fx
+// TODO: guitar-pro layer + LED map
 // FIXME: stepped encoder click legs are BROKEN -- soldering
 // Q: Replace Apple/Diamond logo with DPI percentage/snipe mode
 
