@@ -1,11 +1,18 @@
 // Copyright 2024 splitkb.com (support@splitkb.com)
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <stdbool.h>
 #include <stdint.h>
+#include "action.h"
+#include "action_code.h"
+#include "action_util.h"
+#include "keycode.h"
 #include "keycodes.h"
 #include "modifiers.h"
 #include "pointing_device.h"
+#include "process_key_override.h"
 #include "quantum.h"
+#include "quantum_keycodes.h"
 #include "report.h"
 #include "rgb_matrix.h"
 #include "timer.h"
@@ -13,16 +20,7 @@
 #include "ui_state.h"
 #include QMK_KEYBOARD_H
 
-enum layers {
-    _QWERTY = 0,
-    _GAMING,
-    _NUM_FUNC,
-    _SYM,
-    _NAV,
-    _ADJUST,
-    _AUTO_MOUSE,
-    // _GTR_PRO
-};
+enum layers { _QWERTY = 0, _GAMING, _NUM_FUNC, _SYM, _NAV, _ADJUST, _GTR_PRO, _AUTO_MOUSE };
 
 enum custom_keycodes {
     U_SWAP_BTN = SAFE_RANGE,
@@ -74,6 +72,12 @@ enum custom_keycodes {
 #define SYM_AT ALT_T(KC_2)
 #define SYM_CIRC CTL_T(KC_6)
 #define SYM_PIPE SFT_T(KC_BSLS)
+// gp layer
+#define SFT_DOWN MT(MOD_LSFT, KC_DOWN)
+#define CTL_UP MT(MOD_LCTL, KC_UP)
+#define ALT_RIGHT MT(MOD_LALT, KC_RIGHT)
+#define SFT_6 MT(MOD_LSFT, KC_6)
+#define ALT_4 MT(MOD_LALT, KC_4)
 
 #define SET_MAC (1 << 0)
 #define SET_SWAP (1 << 1)
@@ -153,6 +157,29 @@ void pointing_device_init_user(void) {
 }
 #endif
 
+static bool gp_ctrl_to_cmd(uint16_t keycode, keyrecord_t *record) {
+    if (!is_mac || !IS_LAYER_ON(_GTR_PRO)) return false;
+
+    // Ctrl mod-tap, hold half: send Cmd instead
+    if (IS_QK_MOD_TAP(keycode) && QK_MOD_TAP_GET_MODS(keycode) == MOD_LCTL && !record->tap.count) {
+        if (record->event.pressed)
+            register_mods(MOD_BIT(KC_LGUI));
+        else
+            unregister_mods(MOD_BIT(KC_LGUI));
+        return true;
+    }
+    // C(kc) chords: send G(kc) instead
+    if (IS_QK_MODS(keycode) && QK_MODS_GET_MODS(keycode) == MOD_LCTL) {
+        uint16_t cmd = (keycode & ~QK_LCTL) | QK_LGUI;
+        if (record->event.pressed)
+            register_code16(cmd);
+        else
+            unregister_code16(cmd);
+        return true;
+    }
+    return false;
+}
+
 #define TAP_SHIFTED(kc)                               \
     if (record->tap.count && record->event.pressed) { \
         tap_code16(kc);                               \
@@ -161,6 +188,10 @@ void pointing_device_init_user(void) {
     break
 
 bool process_record_user(uint16_t keycode, keyrecord_t *record) {
+    if (gp_ctrl_to_cmd(keycode, record)) return false;
+
+    // Q: left encoder: macos ? volume : horizontal scroll, or put it on layers. + alternate mode on click? (text nav, midi, scroll wheel)
+
     switch (keycode) {
         case U_SWAP_BTN:
             if (record->event.pressed) {
@@ -240,6 +271,29 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     return true;
 }
 
+const key_override_t gp_wheel_down_override = {
+    .trigger         = MS_WHLD,
+    .trigger_mods    = MOD_MASK_SHIFT,
+    .replacement     = MS_WHLR,
+    .suppressed_mods = MOD_MASK_SHIFT,
+    .layers          = (1 << _GTR_PRO),
+    .options         = ko_options_default,
+};
+
+const key_override_t gp_wheel_up_override = {
+    .trigger         = MS_WHLU,
+    .trigger_mods    = MOD_MASK_SHIFT,
+    .replacement     = MS_WHLL,
+    .suppressed_mods = MOD_MASK_SHIFT,
+    .layers          = (1 << _GTR_PRO),
+    .options         = ko_options_default,
+};
+
+const key_override_t *key_overrides[] = {
+    &gp_wheel_down_override,
+    &gp_wheel_up_override,
+};
+
 report_mouse_t pointing_device_task_user(report_mouse_t r) {
     if (swap_btns && (r.buttons & 0x01)) {
         r.buttons = (r.buttons & ~0x01) | 0x02;
@@ -262,12 +316,13 @@ void keyboard_post_init_user(void) {
     cpi_level      = (stored + CPI_DEFAULT_LEVEL) & 7;
     if (cpi_level >= CPI_LEVELS) cpi_level = CPI_DEFAULT_LEVEL;
 
-    cpi_base = pointing_device_get_cpi(); // the board's own default
+    cpi_base = pointing_device_get_cpi(); // the keyboard's own default
     cpi_apply();
 }
 
 void housekeeping_task_user(void) {
     if (!is_keyboard_master()) return;
+
     static ui_state_t last;
     static uint32_t   last_sync = 0;
 
@@ -299,7 +354,6 @@ bool process_detected_host_os_user(os_variant_t detected_os) {
 }
 
 // ===================================================================
-// TODO: guitar-pro layer + LED map
 // FIXME: stepped encoder click legs are BROKEN -- soldering
 // Q: Replace Apple/Diamond logo with DPI percentage/snipe mode
 
@@ -410,10 +464,10 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
  *                        `----------------------------------'  `----------------------------------'
  */
     [_QWERTY] = LAYOUT(
-        KC_TAB  , KC_Q ,  KC_W   ,  KC_E  ,   KC_R ,       KC_T ,                                          KC_Y,    KC_U,     KC_I,   KC_O,    KC_P,  KC_BSPC,
-        CTL_ESC , GUI_A,  ALT_S  ,  CTL_D ,   SFT_F,       KC_G ,                                          KC_H,   SFT_J,    CTL_K,  ALT_L,GUI_SEMI, CTL_QUOT,
-        KC_LSFT , KC_Z ,  KC_X   ,  KC_C  ,   KC_V ,       KC_B , XXXXXXX, CW_TOGG,     U_WBAK,  U_WFWD,   KC_N,    KC_M,  KC_COMM, KC_DOT, KC_SLSH,  KC_RSFT,
-                                  MENU_ADJ, MO(_GAMING), SPC_SYM,  KC_ESC,  KC_DEL,    KC_BSPC, ENT_NAV, SPC_NUM, KC_RGUI, S(KC_SLSH)
+        KC_TAB  , KC_Q ,  KC_W   ,  KC_E  ,   KC_R ,       KC_T ,                                         KC_Y,         KC_U,     KC_I,   KC_O,    KC_P,  KC_BSPC,
+        CTL_ESC , GUI_A,  ALT_S  ,  CTL_D ,   SFT_F,       KC_G ,                                         KC_H,        SFT_J,    CTL_K,  ALT_L,GUI_SEMI, CTL_QUOT,
+        KC_LSFT , KC_Z ,  KC_X   ,  KC_C  ,   KC_V ,       KC_B , XXXXXXX, CW_TOGG,    U_WBAK,  U_WFWD,   KC_N,         KC_M,  KC_COMM, KC_DOT, KC_SLSH,  KC_RSFT,
+                                  MENU_ADJ, MO(_GAMING), SPC_SYM,  KC_ESC,  KC_DEL,   KC_BSPC, ENT_NAV, SPC_NUM, TT(_GTR_PRO), S(KC_SLSH) // TEST: change to actual func later
     ),
 
 /*
@@ -524,38 +578,38 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
                                _______, _______, KC_SPC,  _______, _______, _______, _______, _______, _______, _______
     ),
 
-// /*
-//  *  Guitar Pro layer
-//  *
-//  * ,-------------------------------------------.                              ,-------------------------------------------.
-//  * |        |      |   7  |   8  |   9  |      |                              |alt+← |      |      |      |      |        |
-//  * |--------+------+------+------+------+------|                              |------+------+------+------+------+--------|
-//  * |        |   G? |  A4  |  ^5  |  S6  |      |                              |  ←   |  S↓  |  ^↑  |  A→  |  G?  |  ENTER |
-//  * |--------+------+------+------+------+------+-------------.  ,-------------+------+------+------+------+------+--------|
-//  * |  Bend  |   0  |   1  |   2  |   3  |      |      |LyrLck|  |      |      |      |      |      |      |      |        |
-//  * `----------------------+------+------+------+------+------|  |------+------+------+------+------+----------------------'
-//  *                        |      |      |      |      |      |  |      |      |      |      |      |
-//  *                        |      |      |      |      |      |  |      |      |      |      |      |
-//  *                        `----------------------------------'  `----------------------------------'
-//  */
-//    // Q: Bend(b), stacc(!), dotted(.), triplet(/), inc/dec length(num+/-), PM(p), harmonic
-//    // Q: reverse sides?
-//     [_LAYERINDEX] = LAYOUT(
-//       _______, _______, _______, _______, _______, _______,                                     _______, _______, _______, _______, _______, _______,
-//       _______, _______, _______, _______, _______, _______,                                     _______, _______, _______, _______, _______, _______,
-//       _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______, _______,
-//                                  _______, _______, _______, _______, _______, _______, _______, _______, _______, _______
-//     ),
+/*
+ *  Guitar Pro layer
+ *
+ * ,-------------------------------------------.                              ,-------------------------------------------.
+ * |    B   |   O  |   7  |   8  |   9  |   S  |                              | Ins  |   E  |   L  |   P  |   I  | (Bkspc)|
+ * |--------+------+------+------+------+------|                              |------+------+------+------+------+--------|
+ * |  (Esc) |   ;  |  A4  |  ^5  |  S6  |   H  |                              |  ←   |  S↓  |  ^↑  |  A→  |   Z  |   Y    |
+ * |--------+------+------+------+------+------+-------------.  ,-------------+------+------+------+------+------+--------|
+ * |   F9   |   !  |   1! |   2  |   3  |   X  |  ← → |QWERTY|  |   [  |   ]  |  G   |   -  |   +  |   .  |   /  |   F3   |
+ * `----------------------+------+------+------+------+------|  |------+------+------+------+------+----------------------'
+ *                        |   M  |   0  |   C  |   V  | (Del)|  | Home | ENTER|  SPC |   R  |      |
+ *                        |      |      |      |      |      |  |      |      |      |      |      |
+ *                        `----------------------------------'  `----------------------------------'
+ */
+    // Bend(b), stacc(!), dotted(.), triplet(/), inc/dec length(num+/-), PM(p), let ring(i), hammeron (h), dead note (x), insert, grace note, ;:(accent), ghost (o), tie (l), rest(r), text(t)
+    //  Q: override ALT+wheel? Shift+wheel = Alt+wheel;
+    [_GTR_PRO] = LAYOUT(
+      KC_B,   KC_O,    KC_7,  KC_8,  KC_9,  KC_S,                                         KC_INS,  KC_E,     KC_L,    KC_P,      KC_I,    _______,
+      KC_ESC, KC_SCLN, ALT_4, CTL_5, SFT_6, KC_H,                                         KC_LEFT, SFT_DOWN, CTL_UP,  ALT_RIGHT, KC_Z,    KC_Y,
+      KC_F9,  KC_EXLM, KC_1,  KC_2,  KC_3,  KC_X, _______, TO(_QWERTY), KC_LBRC, KC_RBRC, KC_G,    KC_PMNS,  KC_PPLS, KC_DOT,    KC_SLSH, KC_F3,
+                              KC_M,  KC_0,  KC_C, KC_V,    _______,     KC_HOME, KC_ENT,  KC_SPC,  KC_R,     _______
+    ),
 
 /*
  * Auto-Mouse layer
  *
  * ,-------------------------------------------.                              ,-------------------------------------------.
- * |        |      |      |      |      |      |                              | snip?|      |      |      |      |        |
+ * |        |      |      |      |      |      |                              | snipe|      |      |      |      |        |
  * |--------+------+------+------+------+------|                              |------+------+------+------+------+--------|
  * |        |      |      |      |      |      |                              |      |      |      |      |      |        |
  * |--------+------+------+------+------+------+-------------.  ,-------------+------+------+------+------+------+--------|
- * |        |      |      |      |      |      |      |      |  |  LMB | snip?|      |      |      |      |      |        |
+ * |        |      |      |      |      |      |      |      |  |  LMB |      |      |      |      |      |      |        |
  * `----------------------+------+------+------+------+------|  |------+------+------+------+------+----------------------'
  *                        |      |      |      |      |      |  |  RMB |      |      |      |      |
  *                        |      |      |      |      |      |  |      |      |      |      |      |
@@ -594,13 +648,14 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 // Q: MIDI?
 // TODO: word/line back/forth? in different layers or left?
 const uint16_t PROGMEM encoder_map[][NUM_ENCODERS][NUM_DIRECTIONS] = {
-    [0] = { ENCODER_CCW_CW(KC_VOLD, KC_VOLU),  ENCODER_CCW_CW(KC_VOLD, KC_VOLU),  ENCODER_CCW_CW(MS_WHLU, MS_WHLD),  ENCODER_CCW_CW(MS_WHLU, MS_WHLD)  },
-    [1] = { ENCODER_CCW_CW(_______, _______),  ENCODER_CCW_CW(_______, _______),  ENCODER_CCW_CW(_______, _______),  ENCODER_CCW_CW(_______, _______)  },
-    [2] = { ENCODER_CCW_CW(_______, _______),  ENCODER_CCW_CW(_______, _______),  ENCODER_CCW_CW(_______, _______),  ENCODER_CCW_CW(_______, _______)  },
-    [3] = { ENCODER_CCW_CW(_______, _______),  ENCODER_CCW_CW(_______, _______),  ENCODER_CCW_CW(_______, _______),  ENCODER_CCW_CW(_______, _______)  },
-    [4] = { ENCODER_CCW_CW(_______, _______),  ENCODER_CCW_CW(_______, _______),  ENCODER_CCW_CW(_______, _______),  ENCODER_CCW_CW(_______, _______)  },
-    [5] = { ENCODER_CCW_CW(_______, _______),  ENCODER_CCW_CW(_______, _______),  ENCODER_CCW_CW(_______, _______),  ENCODER_CCW_CW(_______, _______)  },
-    [6] = { ENCODER_CCW_CW(_______, _______),  ENCODER_CCW_CW(_______, _______),  ENCODER_CCW_CW(_______, _______),  ENCODER_CCW_CW(_______, _______)  },
+    [_QWERTY] =     { ENCODER_CCW_CW(KC_VOLD, KC_VOLU),  ENCODER_CCW_CW(KC_VOLD, KC_VOLU),  ENCODER_CCW_CW(MS_WHLU, MS_WHLD),  ENCODER_CCW_CW(MS_WHLU, MS_WHLD)  },
+    [_GAMING] =     { ENCODER_CCW_CW(_______, _______),  ENCODER_CCW_CW(_______, _______),  ENCODER_CCW_CW(_______, _______),  ENCODER_CCW_CW(_______, _______)  },
+    [_NUM_FUNC] =   { ENCODER_CCW_CW(_______, _______),  ENCODER_CCW_CW(_______, _______),  ENCODER_CCW_CW(_______, _______),  ENCODER_CCW_CW(_______, _______)  },
+    [_SYM] =        { ENCODER_CCW_CW(_______, _______),  ENCODER_CCW_CW(_______, _______),  ENCODER_CCW_CW(_______, _______),  ENCODER_CCW_CW(_______, _______)  },
+    [_NAV] =        { ENCODER_CCW_CW(_______, _______),  ENCODER_CCW_CW(_______, _______),  ENCODER_CCW_CW(_______, _______),  ENCODER_CCW_CW(_______, _______)  } ,
+    [_ADJUST] =     { ENCODER_CCW_CW(_______, _______),  ENCODER_CCW_CW(_______, _______),  ENCODER_CCW_CW(_______, _______),  ENCODER_CCW_CW(_______, _______)  },
+    [_GTR_PRO] =    { ENCODER_CCW_CW(KC_LEFT, KC_RIGHT), ENCODER_CCW_CW(KC_LEFT, KC_RIGHT), ENCODER_CCW_CW(_______, _______),  ENCODER_CCW_CW(_______, _______)  },
+    [_AUTO_MOUSE] = { ENCODER_CCW_CW(_______, _______),  ENCODER_CCW_CW(_______, _______),  ENCODER_CCW_CW(_______, _______),  ENCODER_CCW_CW(_______, _______)  },
 };
 
 // WARN: might be wrong
@@ -649,6 +704,7 @@ const uint16_t left_halcyon_buttons[10][5] = {
     [_SYM] =        { _______, _______, _______, _______, _______ },
     [_NAV] =        { _______, _______, _______, _______, _______ },
     [_ADJUST] =     { _______, _______, _______, _______, _______ },
+    [_GTR_PRO] =    { _______, _______, _______, _______, _______ },
     [_AUTO_MOUSE] = { _______, _______, _______, _______, _______ }
 };
 
@@ -659,6 +715,7 @@ const uint16_t right_halcyon_buttons[10][5] = {
     [_SYM] =        { _______, _______, _______, _______, _______ },
     [_NAV] =        { _______, _______, _______, _______, _______ },
     [_ADJUST] =     { _______, _______, _______, _______, _______ },
+    [_GTR_PRO] =    { _______, _______, _______, _______, _______ },
     [_AUTO_MOUSE] = { _______, _______, _______, _______, _______ }
 };
 #endif

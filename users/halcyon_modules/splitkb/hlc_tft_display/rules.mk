@@ -5,13 +5,11 @@ POST_CONFIG_H += $(USER_PATH)/splitkb/hlc_tft_display/config.h
 SRC += $(USER_PATH)/splitkb/hlc_tft_display/graphics/icons/splitkb.qgf.c \
        $(USER_PATH)/splitkb/hlc_tft_display/graphics/icons/open_with.qgf.c \
        $(USER_PATH)/splitkb/hlc_tft_display/graphics/icons/mouse.qgf.c \
-       $(USER_PATH)/splitkb/hlc_tft_display/graphics/icons/window_tiles.qgf.c \
        $(USER_PATH)/splitkb/hlc_tft_display/graphics/icons/calculate.qgf.c \
        $(USER_PATH)/splitkb/hlc_tft_display/graphics/icons/data_object.qgf.c \
-       $(USER_PATH)/splitkb/hlc_tft_display/graphics/icons/functions.qgf.c \
        $(USER_PATH)/splitkb/hlc_tft_display/graphics/icons/settings.qgf.c \
        $(USER_PATH)/splitkb/hlc_tft_display/graphics/icons/gamepad.qgf.c \
-       # $(USER_PATH)/splitkb/hlc_tft_display/graphics/icons/trackpad_input.qgf.c
+       $(USER_PATH)/splitkb/hlc_tft_display/graphics/icons/guitarpro.qgf.c \
 
 # Modifier-key icons
 SRC += $(USER_PATH)/splitkb/hlc_tft_display/graphics/icons/keyboard_control_key.qgf.c \
@@ -22,7 +20,6 @@ SRC += $(USER_PATH)/splitkb/hlc_tft_display/graphics/icons/keyboard_control_key.
 
 # Lock-state icons (caps_word, caps_lock) + CG_TOGG state (apple/diamond)
 SRC += $(USER_PATH)/splitkb/hlc_tft_display/graphics/icons/uppercase.qgf.c \
-       $(USER_PATH)/splitkb/hlc_tft_display/graphics/icons/keyboard_capslock.qgf.c \
        $(USER_PATH)/splitkb/hlc_tft_display/graphics/icons/apple_logo.qgf.c \
        $(USER_PATH)/splitkb/hlc_tft_display/graphics/icons/lmb.qgf.c \
        $(USER_PATH)/splitkb/hlc_tft_display/graphics/icons/rmb.qgf.c \

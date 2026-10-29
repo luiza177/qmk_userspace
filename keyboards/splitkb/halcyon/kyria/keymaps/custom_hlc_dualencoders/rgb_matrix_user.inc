@@ -11,7 +11,7 @@ RGB_MATRIX_EFFECT(layer_colors)
 enum {
     C_OFF, C_DIM, C_VDIM,                       // off, transparent keys, very dim
     C_KEY, C_HOME, C_MOD, C_PUN, C_PUNH,       // base layer
-    C_TR, C_TRD, C_TG, C_TGD, C_TY, C_TYD, C_TB, C_TBD, C_TC, // thumbs: adjust/sym/nav/num active keys, base cyan and dimmed versions
+    C_TR, C_TRD, C_TG, C_TGD, C_TY, C_TYD, C_TB, C_TBD, C_TC, C_TO, C_TOD, // thumbs: adjust/sym/nav/num/gp active keys, base cyan and dimmed versions
     C_NUM, C_OPR, C_NUMT,                       // num layer
     C_F1, C_F2, C_F3, C_F4, C_F5, C_F6,
     C_F7, C_F8, C_F9, C_F10, C_F11, C_F12,     // func gradient
@@ -36,15 +36,17 @@ static const uint8_t PROGMEM palette[][3] = {
     [C_PUN]   = { 93, 120, 200},   // , . / '
     [C_PUNH]  = { 93,  80, 255},   // ;   (bright + tint)
 
-    [C_TR]    = {252, 255, 255},   // adjust thumb
-    [C_TRD]   = {252, 255, 200},   // adjust thumb dimmed
-    [C_TG]    = { 93, 255, 255},   // sym thumb
-    [C_TGD]   = { 93, 255, 200},   // sym thumb dimmed
-    [C_TY]    = { 29, 255, 255},   // nav thumb
-    [C_TYD]   = { 29, 255, 200},   // nav thumb dimmed
-    [C_TB]    = {157, 255, 255},   // num thumb
-    [C_TBD]   = {157, 255, 200},   // num thumb dimmed
-    [C_TC]    = {131, 250, 230},   // other thumbs on base
+    [C_TR]    = {252, 255, 255},   // adjust thumb -- red
+    [C_TRD]   = {252, 255, 200},   // adjust thumb dimmed -- red
+    [C_TG]    = { 93, 255, 255},   // sym thumb -- green
+    [C_TGD]   = { 93, 255, 200},   // sym thumb dimmed -- green
+    [C_TY]    = { 29, 255, 255},   // nav thumb -- yellow
+    [C_TYD]   = { 29, 255, 200},   // nav thumb dimmed -- yellow
+    [C_TB]    = {157, 255, 255},   // num thumb -- blue
+    [C_TBD]   = {157, 255, 200},   // num thumb dimmed -- blue
+    [C_TO]    = { 13, 255, 255},   // Guitar Pro thumbs -- orange
+    [C_TOD]   = { 13, 250, 200},   // Guitar Pro thumbs -- orange
+    [C_TC]    = {131, 250, 230},   // other thumbs on base -- cyan
 
     [C_NUM]   = {164, 255, 255},   // digits
     [C_OPR]   = {133, 239, 230},   // operators, enter, print screen
@@ -133,7 +135,7 @@ static const uint8_t PROGMEM layer_map[][RGB_MATRIX_LED_COUNT] = {
         C_MOD,  C_KEY,  C_KEY,  C_KEY,  C_KEY,  C_KEY,                                  C_KEY,  C_KEY,  C_KEY,  C_KEY,  C_KEY,  C_MOD,
         C_MOD,  C_HOME, C_HOME, C_HOME, C_HOME, C_KEY,                                  C_KEY,  C_HOME, C_HOME, C_HOME, C_PUNH, C_PUN,
         C_MOD,  C_KEY,  C_KEY,  C_KEY,  C_KEY,  C_KEY,  C_OFF,  C_MOD,  C_DIM,  C_DIM,  C_KEY,  C_KEY,  C_PUN,  C_PUN,  C_PUN,  C_MOD,
-                                C_TR,   C_TC,   C_TG,   C_TC,   C_TC,   C_TC,   C_TY,   C_TB,   C_TC,   C_OFF
+                                C_TR,   C_TC,   C_TG,   C_TC,   C_TC,   C_TC,   C_TY,   C_TB,   C_TO,   C_OFF
     ),
 
     // ---- 1: gaming ---- Q: is it possible to not just copy base layer, AKA DRY?
@@ -141,7 +143,7 @@ static const uint8_t PROGMEM layer_map[][RGB_MATRIX_LED_COUNT] = {
         C_DIM,  C_OFF,  C_KEY,  C_KEY,   C_KEY,  C_KEY,                                  C_KEY,  C_KEY,  C_KEY,  C_KEY,  C_KEY,  C_MOD,
         C_DIM,  C_MOD,  C_HOME, C_HOME,  C_HOME, C_KEY,                                  C_KEY,  C_HOME, C_HOME, C_HOME, C_PUNH, C_PUN,
         C_DIM,  C_MOD,  C_KEY,  C_HOME,  C_KEY,  C_KEY,  C_OFF,  C_MOD,  C_DIM,  C_DIM,  C_KEY,  C_KEY,  C_PUN,  C_PUN,  C_PUN,  C_MOD,
-                                C_TR,   C_TC,    C_HOME, C_TC,   C_TC,   C_TC,   C_TY,   C_TB,   C_TC,   C_OFF
+                                C_TR,    C_TC,   C_HOME, C_TC,   C_TC,   C_TC,   C_TY,   C_TB,   C_TOD,   C_OFF
     ),
 
     // ---- 2: num / func ----
@@ -149,7 +151,7 @@ static const uint8_t PROGMEM layer_map[][RGB_MATRIX_LED_COUNT] = {
         C_DIM,  C_F9,   C_F10,  C_F11,  C_F12,  C_OFF,                                   C_OPR,  C_NUM,  C_NUM,  C_NUM,  C_OPR,  C_DIM,
         C_DIM,  C_F8,   C_F7,   C_F6,   C_F5,   C_OPR,                                   C_OPR,  C_NUM,  C_NUM,  C_NUM,  C_OPR,  C_OPR,
         C_DIM,  C_F4,   C_F3,   C_F2,   C_F1,   C_OFF, C_DIM,   C_TB,   C_VDIM,  C_VDIM, C_NUM,  C_NUM,  C_NUM,  C_NUM,  C_OPR,  C_DIM,
-                                C_TRD,  C_NUMT, C_TGD, C_NUMT,  C_NUMT, C_NUMT,  C_TYD,  C_TB,   C_NUMT, C_OFF
+                                C_TRD,  C_NUMT, C_TGD, C_NUMT,  C_NUMT, C_NUMT,  C_TYD,  C_TB,   C_TOD,   C_OFF
     ),
 
     // ---- 3: sym ----
@@ -157,7 +159,7 @@ static const uint8_t PROGMEM layer_map[][RGB_MATRIX_LED_COUNT] = {
         C_DIM,  C_OFF,  C_TXT,  C_TXT,  C_COD,  C_BRK,                                  C_BRK,  C_MTH,  C_MTH,  C_TXT,  C_TXT,  C_DIM,
         C_DIM,  C_TXTH, C_TXTH, C_TXTH, C_CODH, C_BRK,                                  C_BRK,  C_MTH,  C_MTH,  C_TXT,  C_TXT,  C_SYMT,
         C_DIM,  C_OFF,  C_OFF,  C_COD,  C_COD,  C_BRK,  C_DIM,  C_TG,   C_VDIM, C_VDIM, C_BRK,  C_MTH,  C_MTH,  C_COD,  C_TXT,  C_DIM,
-                                C_TRD,  C_SYMT, C_TG,   C_SYMT, C_SYMT, C_SYMT, C_TYD,  C_TBD,  C_SYMT, C_OFF
+                                C_TRD,  C_SYMT, C_TG,   C_SYMT, C_SYMT, C_SYMT, C_TYD,  C_TBD,  C_TOD, C_OFF
     ),
 
     // ---- 4: nav ----
@@ -165,7 +167,7 @@ static const uint8_t PROGMEM layer_map[][RGB_MATRIX_LED_COUNT] = {
         C_DIM,  C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_OFF,                                  C_NAVK, C_NAVK, C_NAVK, C_NAVK, C_NAVK, C_DIM,
         C_DIM,  C_NAVM, C_NAVM, C_NAVM, C_NAVM, C_OFF,                                  C_ARW,  C_ARW,  C_ARW,  C_ARW,  C_OFF,  C_NAVT,
         C_DIM,  C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_MED,  C_TY,   C_VDIM, C_VDIM, C_MED,  C_MED,  C_MED,  C_OFF,  C_OFF,  C_DIM,
-                                C_TRD,  C_NAVT, C_TGD,  C_NAVT, C_NAVT, C_NAVT, C_TY,   C_TBD,  C_NAVT, C_OFF
+                                C_TRD,  C_NAVT, C_TGD,  C_NAVT, C_NAVT, C_NAVT, C_TY,   C_TBD,  C_TOD, C_OFF
     ),
 
     // ---- 5: adjust ----
@@ -173,7 +175,15 @@ static const uint8_t PROGMEM layer_map[][RGB_MATRIX_LED_COUNT] = {
         C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_ST_WIN,                               C_ST_SWAP,C_OFF,  C_MS,   C_MS,   C_OFF,  C_BOOT,
         C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_BL,   C_OFF,                                  C_ADJ,    C_ADJ,  C_ADJ,  C_ADJ,  C_ADJ,  C_OFF,
         C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_BL,   C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_OFF,  C_DIM,    C_ADJ,  C_ADJ,  C_ADJ,  C_ADJ,  C_OFF,
-                                C_TR,   C_ADJT, C_TGD,  C_ADJT, C_ADJT, C_ADJT, C_TYD,  C_TBD,    C_ADJT, C_OFF
+                                C_TR,   C_ADJT, C_TGD,  C_ADJT, C_ADJT, C_ADJT, C_TYD,  C_TBD,    C_TOD,  C_OFF
+    ),
+
+    // ---- 6: guitar pro ---- // dynamics, duration, articulation, structure, commands
+    [6] = GRID(C_GBASE, C_GBASE,
+        C_MED,  C_OPR,  C_NUM,  C_NUM,  C_NUM,  C_MED,                                  C_NAVK, C_PUNH, C_MED,  C_MED,  C_MED,  C_MOD,
+        C_MOD,  C_OPR,  C_NUM,  C_NUM,  C_NUM,  C_MED,                                  C_ARW,  C_ARW,  C_ARW,  C_ARW,  C_TC,   C_TC,
+        C_F9,   C_OPR,  C_NUM,  C_NUM,  C_NUM,  C_MED,  C_OFF,  C_MOD,  C_BRK,  C_BRK,  C_NAVK, C_MTH,  C_MTH,  C_MTH,  C_MTH,  C_F3,
+                                C_MTH,  C_NUM,  C_TC,   C_TC,   C_TC,   C_ARW,  C_TC,   C_TC,  C_NUM,  C_OFF
     ),
 };
 

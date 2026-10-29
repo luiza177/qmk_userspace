@@ -11,10 +11,10 @@
 #include "graphics/icons/splitkb.qgf.h"
 #include "graphics/icons/open_with.qgf.h"
 #include "graphics/icons/mouse.qgf.h"
-#include "graphics/icons/window_tiles.qgf.h"
+// #include "graphics/icons/window_tiles.qgf.h"
 #include "graphics/icons/calculate.qgf.h"
 #include "graphics/icons/data_object.qgf.h"
-#include "graphics/icons/functions.qgf.h"
+// #include "graphics/icons/functions.qgf.h"
 #include "graphics/icons/settings.qgf.h"
 // #include "graphics/icons/trackpad_input.qgf.h"
 
@@ -31,6 +31,7 @@
 #include "graphics/icons/gamepad.qgf.h"
 #include "graphics/icons/lmb.qgf.h"
 #include "graphics/icons/rmb.qgf.h"
+#include "graphics/icons/guitarpro.qgf.h"
 
 // Layout
 #define ICON_SIZE 120
@@ -301,14 +302,15 @@ bool module_post_init_kb(void) {
 
     // Load icons (held for firmware lifetime)
     layer_icons[0] = qp_load_image_mem(gfx_splitkb);
-    layer_icons[1] = qp_load_image_mem(gfx_gamepad);      // 
-    layer_icons[2] = qp_load_image_mem(gfx_calculate);    //  󱖦 
-    layer_icons[3] = qp_load_image_mem(gfx_data_object);  // 󰘦  
-    layer_icons[4] = qp_load_image_mem(gfx_open_with);    // 4 arrows?  
-    layer_icons[5] = qp_load_image_mem(gfx_settings);     // 
-    layer_icons[6] = qp_load_image_mem(gfx_mouse);        // 󰍽
-    layer_icons[7] = qp_load_image_mem(gfx_functions);    // 󰊕 󰡱
-    layer_icons[8] = qp_load_image_mem(gfx_window_tiles); // _WINDOW (was _MEDIA / music_note) // 󰐎
+    layer_icons[1] = qp_load_image_mem(gfx_gamepad);     // 
+    layer_icons[2] = qp_load_image_mem(gfx_calculate);   //  󱖦 
+    layer_icons[3] = qp_load_image_mem(gfx_data_object); // 󰘦  
+    layer_icons[4] = qp_load_image_mem(gfx_open_with);   // 4 arrows?  
+    layer_icons[5] = qp_load_image_mem(gfx_settings);    // 
+    layer_icons[6] = qp_load_image_mem(gfx_guitarpro);   // 󰋅
+    layer_icons[7] = qp_load_image_mem(gfx_mouse);       // 󰍽
+    // layer_icons[7] = qp_load_image_mem(gfx_functions);    // 󰊕 󰡱
+    // layer_icons[8] = qp_load_image_mem(gfx_window_tiles); // _WINDOW (was _MEDIA / music_note) // 󰐎
     // layer_icons[9] = qp_load_image_mem(gfx_trackpad_input);
 
     mod_icons[0]     = qp_load_image_mem(gfx_keyboard_control_key);
