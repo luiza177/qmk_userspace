@@ -15,6 +15,7 @@
 #include "quantum_keycodes.h"
 #include "report.h"
 #include "rgb_matrix.h"
+#include "sequencer.h"
 #include "timer.h"
 #include "transactions.h"
 #include "ui_state.h"
@@ -104,6 +105,7 @@ static uint16_t cpi_base  = 0;
 
 static void cpi_apply(void) {
     if (!cpi_base) return;
+
     uint32_t cpi = (uint32_t)cpi_base * cpi_pct[cpi_level] / 100;
     if (sniping) cpi = cpi * SNIPE_DIV / 100;
     if (cpi < 1) cpi = 1;
@@ -271,27 +273,47 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record) {
     return true;
 }
 
-const key_override_t gp_wheel_down_override = {
-    .trigger         = MS_WHLD,
-    .trigger_mods    = MOD_MASK_SHIFT,
-    .replacement     = MS_WHLR,
-    .suppressed_mods = MOD_MASK_SHIFT,
-    .layers          = (1 << _GTR_PRO),
-    .options         = ko_options_default,
-};
+// const key_override_t gp_wheel_down_override = ko_make_basic(MOD_MASK_SHIFT, MS_WHLD, KC_X);
+// const key_override_t gp_wheel_down_override = ko_make_basic(MOD_MASK_SHIFT, MS_WHLD, MS_WHLR);
+const key_override_t gp_wheel_down_override = ko_make_with_layers(MOD_MASK_SHIFT, MS_WHLD, MS_WHLR, (1 << _GTR_PRO));
+// const key_override_t gp_wheel_down_override = {
+//     .trigger         = MS_WHLD,
+//     .trigger_mods    = MOD_MASK_SHIFT,
+//     .replacement     = MS_WHLR,
+//     .suppressed_mods = MOD_MASK_SHIFT,
+//     .layers          = (1 << _GTR_PRO),
+//     .layers          = ~0,
+//     .options         = ko_options_default,
+//     .enabled         = &gp_layer_on,
+// };
 
-const key_override_t gp_wheel_up_override = {
-    .trigger         = MS_WHLU,
-    .trigger_mods    = MOD_MASK_SHIFT,
-    .replacement     = MS_WHLL,
-    .suppressed_mods = MOD_MASK_SHIFT,
-    .layers          = (1 << _GTR_PRO),
-    .options         = ko_options_default,
-};
+// const key_override_t gp_wheel_up_override = ko_make_basic(MOD_MASK_SHIFT, KC_Q, MS_WHLR);
+// const key_override_t gp_wheel_up_override = ko_make_basic(MOD_MASK_SHIFT, MS_WHLU, MS_WHLL);
+const key_override_t gp_wheel_up_override = ko_make_with_layers(MOD_MASK_SHIFT, MS_WHLU, MS_WHLL, (1 << _GTR_PRO));
+// const key_override_t gp_wheel_up_override = {
+//     .trigger         = MS_WHLU,
+//     .trigger_mods    = MOD_MASK_SHIFT,
+//     .replacement     = MS_WHLL,
+//     .suppressed_mods = MOD_MASK_SHIFT,
+//     .layers          = (1 << _GTR_PRO),
+//     .layers          = ~0,
+//     .options         = ko_options_default,
+//     .enabled         = &gp_layer_on,
+// };
+
+// const key_override_t test_override = {
+//     .trigger         = KC_Q,
+//     .trigger_mods    = MOD_MASK_SHIFT,
+//     .replacement     = KC_X,
+//     .suppressed_mods = MOD_MASK_SHIFT,
+//     .options         = ko_options_default,
+//     .layers          = ~0,
+// };
 
 const key_override_t *key_overrides[] = {
     &gp_wheel_down_override,
     &gp_wheel_up_override,
+    // &test_override,
 };
 
 report_mouse_t pointing_device_task_user(report_mouse_t r) {
@@ -355,7 +377,7 @@ bool process_detected_host_os_user(os_variant_t detected_os) {
 
 // ===================================================================
 // FIXME: stepped encoder click legs are BROKEN -- soldering
-// Q: Replace Apple/Diamond logo with DPI percentage/snipe mode
+// TODO: Replace Apple/Diamond logo with DPI percentage/snipe mode
 
 /* HINT: QMK FEATURE CRASH COURSE: =========================================
  *
@@ -654,7 +676,7 @@ const uint16_t PROGMEM encoder_map[][NUM_ENCODERS][NUM_DIRECTIONS] = {
     [_SYM] =        { ENCODER_CCW_CW(_______, _______),  ENCODER_CCW_CW(_______, _______),  ENCODER_CCW_CW(_______, _______),  ENCODER_CCW_CW(_______, _______)  },
     [_NAV] =        { ENCODER_CCW_CW(_______, _______),  ENCODER_CCW_CW(_______, _______),  ENCODER_CCW_CW(_______, _______),  ENCODER_CCW_CW(_______, _______)  } ,
     [_ADJUST] =     { ENCODER_CCW_CW(_______, _______),  ENCODER_CCW_CW(_______, _______),  ENCODER_CCW_CW(_______, _______),  ENCODER_CCW_CW(_______, _______)  },
-    [_GTR_PRO] =    { ENCODER_CCW_CW(KC_LEFT, KC_RIGHT), ENCODER_CCW_CW(KC_LEFT, KC_RIGHT), ENCODER_CCW_CW(_______, _______),  ENCODER_CCW_CW(_______, _______)  },
+    [_GTR_PRO] =    { ENCODER_CCW_CW(KC_LEFT, KC_RIGHT), ENCODER_CCW_CW(KC_LEFT, KC_RIGHT), ENCODER_CCW_CW(MS_WHLU, MS_WHLD),  ENCODER_CCW_CW(MS_WHLU, MS_WHLD)  },
     [_AUTO_MOUSE] = { ENCODER_CCW_CW(_______, _______),  ENCODER_CCW_CW(_______, _______),  ENCODER_CCW_CW(_______, _______),  ENCODER_CCW_CW(_______, _______)  },
 };
 
